@@ -271,4 +271,20 @@ def s21b():
                  'attributes: those plus the eight general ones of Study 21. Rating: his goalkeeper position rating (natural 20).'}
 
 
-STUDIES = {'09b': s09b, '10': s10, '11': s11, '12': s12, '13': s13, '14': s14, '14b': s14b, '15': s15, '15b': s15b, '17': s17, '17b': s17b, '20': s20, '21': s21, '21b': s21b}
+AREAS8 = ['In-possession shape', 'Passing style', 'Build-up', 'Chance creation', 'Out-of-possession shape',
+          'Line of engagement', 'Pressing intensity', 'Pressing trap']   # the effectiveness record's eight triples, in order
+
+
+def area(k, level):   # one tactical area (its training, exposure and third byte) at level for the tested side
+    return {'fields': {1 + 3 * k + j: level for j in range(3)}}
+
+
+def s24():
+    conds = [(f'{a} {lv}', area(k, lv)) for lv in (80, 20) for k, a in enumerate(AREAS8)]
+    return {'title': 'Study 24: which tactical familiarity areas are worth training?', 'seeds': 50, 'pilot_seeds': 2, 'familiarity': 50,
+            'groups': [{'name': style, 'style': style, 'conds': conds} for style in ('Gegenpress', 'Control Possession')],
+            'notes': 'Every area of every player on both sides held at 50; each condition raises one area of the tested side to 80 '
+                     'or lowers it to 20, the other seven at 50. 400 pairs per condition.'}
+
+
+STUDIES = {'09b': s09b, '10': s10, '11': s11, '12': s12, '13': s13, '14': s14, '14b': s14b, '15': s15, '15b': s15b, '17': s17, '17b': s17b, '20': s20, '21': s21, '21b': s21b, '24': s24}

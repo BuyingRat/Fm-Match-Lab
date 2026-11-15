@@ -1,7 +1,8 @@
 """Neutral-ground studies from a specification (the research roadmap's Studies 9b-21, see roadmap_studies.py).
 
 Every study is a set of groups (a tested style, squad tiers, opponents, templates); every group has the unchanged
-side ('none') and conditions, each a change to the scenario. Every condition replays the same template, opponent,
+side ('none') and conditions, each a change to the scenario or ({'fields': {offset: level}}) to the tested side's
+tactical-area bytes, which the host holds through FM27_MAC_EXEC_FIELDS. Every condition replays the same template, opponent,
 venue and seed as 'none', so differences are paired. Fixtures alternate between the group's templates by seed.
 
   python port/validation/neutral_study.py build NAME OUT          # NAME: a key of roadmap_studies.STUDIES
@@ -92,8 +93,11 @@ def build(a):
     spec = roadmap_studies.STUDIES[a.name]()
     A = study.app(); out = Path(a.out).resolve(); out.mkdir(parents=True, exist_ok=True); (out / 'bins').mkdir(exist_ok=True)
     b = league.Builder(A, out); fam = spec.get('familiarity', 80)
-    env = {'FM27_MAC_EXEC_FIELDS': ','.join(f'{x}:{o}={fam}' for x in (0, 1) for o in league.AREAS) + ',' +
-           ','.join(f'{x}:{o}=50' for x in (0, 1) for o in (0x19, 0x1a))}
+    def fam_env(over=None):   # every player's eight areas at fam (over: {(side, offset): level}), complexity bytes at 50
+        over = over or {}
+        return {'FM27_MAC_EXEC_FIELDS': ','.join(f'{x}:{o}={over.get((x, o), fam)}' for x in (0, 1) for o in league.AREAS) + ',' +
+                ','.join(f'{x}:{o}=50' for x in (0, 1) for o in (0x19, 0x1a))}
+    env = fam_env()
     jobs, checks, n, bases, meta_groups = [], [], 0, {}, []
     for g in spec['groups']:
         templates = [template_path(t) for t in g.get('templates', DEFAULT_TEMPLATES)]
@@ -115,7 +119,10 @@ def build(a):
                     if g.get('setup'): g['setup'](A, s0, venue)
                     s0 = A.validate_scenario(s0); base_blob = A.encode_scenario(s0)
                     for cname, edit in conds:
+                        cenv = env
                         if edit is None: s, blob = s0, base_blob
+                        elif isinstance(edit, dict):   # familiarity: the scenario is unchanged, the tested side's area bytes differ
+                            s, blob = s0, base_blob; cenv = fam_env({(venue, o): v for o, v in edit['fields'].items()})
                         else:
                             s = copy.deepcopy(s0); edit(A, s, venue)
                             intended = {(side,) + key: v for side in (0, 1) for key, v in team_diff(s0['teams'][side], s['teams'][side]).items()}
@@ -137,7 +144,7 @@ def build(a):
                         if not f.exists(): f.write_bytes(blob)
                         n += 1
                         cond = f"{g['name']}|{cname}|{opp}|{venue}|{k}"
-                        jobs += [['N', cond, path, str(f), env, 1, s_] for s_ in range(1, seeds + 1) if (s_ - 1) % len(templates) == k]
+                        jobs += [['N', cond, path, str(f), cenv, 1, s_] for s_ in range(1, seeds + 1) if (s_ - 1) % len(templates) == k]
         print('built', g['name'], flush=True)
     jobs.sort(key=lambda j: j[6])
     (out / 'jobs_all.json').write_text(json.dumps(jobs)); (out / 'jobs.json').write_text(json.dumps(jobs))

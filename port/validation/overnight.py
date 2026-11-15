@@ -152,6 +152,8 @@ def summarise(path):
 
 def run(out, parallel, stop=None):
     """stop: optional callable; once it returns True no new chunk starts (running ones finish), resumable later."""
+    free = shutil.disk_usage(out).free / 1e9
+    if free < 30: print(f'WARNING: only {free:.0f} GB free on this disk', file=sys.stderr, flush=True)
     jobs = json.load(open(out / 'jobs.json'))
     done = set()
     results = out / 'results.jsonl'

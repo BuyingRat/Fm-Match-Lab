@@ -60,8 +60,13 @@ recomputed by the match engine, so complex instructions do not pay their in-game
 
 How to design and read one:
 
-- **Paired comparisons.** Every condition replays the same matches on the same seeds as the unchanged match, so
-  differences are measured match by match. Always compare against the natural replay, never against a separate run.
+- **Paired comparisons, and their limit.** Every condition replays the same matches on the same seeds as the
+  unchanged match, so the comparison is fair. But pairing barely reduces noise: one change alters the match from the
+  first touch (paired differences vary like two unrelated matches; checked in Studies 12, 13, 14, 21 and 24). Two
+  consequences: every condition compared with one baseline shares that baseline's luck (a shift of up to ±0.05 xPts
+  for all of a study's conditions), so read levels with that in mind and compare conditions with each other; and for
+  many small effects, random designs (every factor varied in every match, one regression, as in
+  `port/validation/random_study.py` and `study24b_random_areas.py`) are 5-15 times more efficient.
 - **Seeds.** 10 matches × 30 seeds (300 pairs) detects effects of about 0.1 points per game or 0.1 xGD. Halve the
   detectable effect by quadrupling the seeds.
 - **Outcomes.** xGD (expected-goal difference) is the most sensitive; points per game is what matters but is
@@ -86,6 +91,9 @@ mechanism (more chances, better chances, fewer chances conceded). `docs/studies/
 | `src/league.py`, `src/league_web.py`, `src/tactics_ui/league.js` | leagues of tactics: the shared engine (also `study.py league`), the app's League page |
 | `scripts/season.py`, `src/club_season.py` | a club's real league season from a save, once per tactic, against real squads and AI-picked, AI-managed opponents (Study 19) |
 | `port/validation/random_study.py` | attribute values by position from random configurations (every attribute of every starter ±5 in every match) |
+| `port/validation/study24_areas.py`, `study24b_random_areas.py` | Study 24: familiarity areas one at a time, then at random levels (24b) |
+| `port/validation/pooled_attributes.py`, `random_curvature.py` | Study 13b's model against every earlier condition; curvature and within-player combinations from the random matches |
+| `scripts/backup_results.py` | compressed, versioned copy of every study's results (default ~/Dropbox); run after each study, never deletes |
 | `src/reference_squads.json`, `scripts/reference_squads.py` | synthetic reference squads and their generator (calibration stays in `private/reference/`) |
 | `port/mac_host/` | the engine host (C++), built by `scripts/build_native_mac.py` |
 | `port/map/` | address mapping and data readers (IL2CPP enums, effectiveness record) |

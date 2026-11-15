@@ -1,6 +1,7 @@
 # Study 13b: what is an attribute worth in each position? Random configurations
 
-**Status:** Gegenpress done (14 November, 50,000 matches); Catenaccio running. Study 13 changed one attribute in one
+**Status:** done (14 November): Gegenpress 50,000 matches; Catenaccio 34,340 (stopped early to free the machine;
+resumable). Study 13 changed one attribute in one
 position group at a time and found no clear position-specific values. A test posted on FM Arena (Purity, 200,000
 matches on their own 3-4-2-1) used a different design and did find them. Is the difference the design, the tactic,
 or chance? And can the same design finally measure single goalkeeper attributes, which Study 21 could not?
@@ -14,12 +15,17 @@ or chance? And can the same design finally measure single goalkeeper attributes,
   with the position is how much, and whether it works in attack or defence.
 - **Jumping Reach is a centre-back's and a striker's attribute** (+0.32 and +0.19 xPts a season per level), much less a
   defensive midfielder's (+0.06). Balance also pays for centre-backs and strikers, hardly elsewhere.
-- **Goalkeepers: Agility and Reflexes matter, each on its own.** +1 level of either saves about 0.8-0.9 goals a season
+- **Goalkeepers: Agility and Reflexes matter, each on its own.** +1 level of either saves about 0.8-1.1 goals a season
   (t −19 to −23), worth about half a point; +5 of each is worth about 5 points a season together. The xG the keeper
   faces doesn't change: it is all at the save, so xPts tables miss it.
-- **This agrees with Study 13 and with Purity's table.** Study 13's numbers fit these within its noise; it lacked the
-  precision to separate positions. Purity's goal-difference weights correlate 0.80 with ours over 240 cells; their
-  striker values are about twice ours, plausibly because their side has one striker and Gegenpress has two.
+- **The style changes the sizes, not the order.** Catenaccio, a deep 5-2-2-1 close to Purity's shape, gives the same
+  leaders and the same goalkeeper result, but its defenders gain less from speed (less space to cover behind them)
+  and its central attacking midfielders more (correlation with Gegenpress 0.85; the differences are beyond chance).
+- **This agrees with Study 13 and, in pattern, with Purity's table.** Study 13's numbers fit these within its noise;
+  it lacked the precision to separate positions. Purity's goal-difference weights correlate 0.80 with ours over 240
+  cells, but their striker values are two to three times ours, in both styles. A lone striker is not the reason:
+  Catenaccio's lone striker gains no more than each of Gegenpress's two. The difference is unexplained (their real
+  players, roles, fixtures or method).
 
 ## Design
 
@@ -147,9 +153,81 @@ Per season, +1 level of the goalkeeper's attribute; t in brackets. The rest are 
     for Jumping Reach (striker and centre-back, little for defensive midfielders); Finishing only for forwards;
     technical attributes near zero.
   - **The size differs for the striker:** ours are about half theirs (Pace +0.45 against +0.90, Jumping Reach +0.34
-    against +0.73). A lone striker does the work Gegenpress's two share. Their centre-backs (three) and our
-    centre-backs (two) are close; other positions are within about 30%.
+    against +0.73). It isn't the number of strikers: Catenaccio's lone striker gets Pace +0.27 and Jumping Reach +0.21,
+    no more than each of Gegenpress's two, and Catenaccio is the closer match to their shape (correlation 0.67, its
+    striker a third of theirs). Their striker is a real player in their own role, against real
+    opponents; ours are synthetic. Other positions are within about 30% for Gegenpress.
   - **The goalkeeper** was not covered in their test.
+
+## Catenaccio: does the style change the weights?
+
+Catenaccio plays a 5-2-2-1: three centre-backs, two wing-backs (here in the full-back group), two defensive
+midfielders, two central attacking midfielders (here in the attacking-midfield group, central rather than wide) and
+one striker. 34,340 matches, so margins are about 20% wider than for Gegenpress (±0.04 xPts per season per level).
+
+Expected points per season, +1 level for one player:
+
+| Attribute | Style | ST | AM | DM | FB | CB |
+|---|---|---|---|---|---|---|
+| Acceleration | Gegenpress | +0.20 | +0.15 | +0.15 | +0.17 | +0.20 |
+| | Catenaccio | +0.17 | +0.21 | +0.15 | +0.14 | +0.13 |
+| Pace | Gegenpress | +0.21 | +0.17 | +0.12 | +0.17 | +0.13 |
+| | Catenaccio | +0.20 | +0.24 | +0.04 | +0.13 | +0.06 |
+| Jumping Reach | Gegenpress | +0.19 | +0.10 | +0.06 | +0.08 | +0.32 |
+| | Catenaccio | +0.16 | +0.13 | +0.07 | +0.09 | +0.23 |
+| Stamina | Gegenpress | +0.07 | +0.10 | +0.09 | +0.10 | +0.08 |
+| | Catenaccio | +0.07 | +0.09 | +0.05 | +0.08 | +0.03 |
+| Anticipation | Gegenpress | +0.10 | +0.07 | +0.07 | +0.07 | +0.10 |
+| | Catenaccio | +0.11 | +0.07 | +0.05 | +0.03 | +0.05 |
+| Balance | Gegenpress | +0.09 | +0.03 | +0.04 | +0.06 | +0.10 |
+| | Catenaccio | +0.06 | +0.07 | +0.07 | +0.02 | +0.04 |
+| Dribbling | Gegenpress | +0.05 | +0.07 | +0.02 | +0.08 | +0.03 |
+| | Catenaccio | +0.05 | +0.10 | +0.02 | +0.09 | −0.01 |
+
+- **The same leaders:** Acceleration, Jumping Reach and Pace in both, then Stamina, Anticipation, Balance, Dribbling,
+  Concentration. Over all 240 outfield cells the two styles correlate 0.85 (expected points) and 0.71 (goal
+  difference).
+- **But the styles differ beyond chance** (chi-square 388 on 240 in expected points). The largest differences:
+  - **Centre-backs gain less in Catenaccio** from Acceleration, Pace, Jumping Reach, Balance and Stamina (each
+    t 3-4), probably because defending deep leaves less space behind them and three share the work instead of two.
+  - **Defensive midfielders' Pace** is worth +0.04 in Catenaccio against +0.12.
+  - **Central attacking midfielders gain more** from Pace (+0.24 against +0.17 for Gegenpress's wide ones).
+- **Positions differ in Catenaccio too:** ten attributes at p < 0.05 (2.4 expected); Pace, Jumping Reach,
+  Acceleration, Dribbling and Concentration at p < 0.005.
+- **Conversion again for forwards:** Finishing adds goals at the same xG (central attacking midfielder +0.12 a season
+  per level, t 4.1; striker +0.09, t 2.1), and so does Strength (+0.09 to +0.11).
+- **The goalkeeper result repeats:** Agility −1.09 goals against a season per level (t −23), Reflexes −0.93 (t −20),
+  with no change in xG against; Acceleration lowers xG against (−0.28, t −11). Handling shows nothing in Catenaccio
+  (+0.02).
+
+## Checks against the other studies, and what the same matches say about curvature
+
+**The model predicts the earlier studies.** Every condition of Studies 9b, 10, 11, 12, 13, 14, 14b, 21 and 21b played in
+this set-up (247 conditions, about 100,000 matches) was rebuilt to see exactly which players and attributes it
+changed, and predicted from this study's per-level coefficients (`port/validation/pooled_attributes.py`):
+- **Predicted and measured agree:** correlation 0.94 in expected points. Within the range measured here (changes of
+  ±5, levels 9-20) the 187 conditions fit within their noise (chi-square 133 on 179), once each study's baseline is
+  allowed its own offset (see below).
+- **One position group at a time (Study 13): exactly additive,** measured = 0.96 × predicted (±0.16).
+- **The whole squad +5: 1.23 × predicted** (±0.09). Part of this is the substitutes, who were improved too but are
+  not in the model; the rest may be a small gain from improving everyone at once.
+- **Below level 9 the straight line breaks** (Study 12's levels 1-6): Pace and Acceleration lose about 50% more than
+  linear, Work Rate collapses (its floor), and Jumping Reach loses less (it is convex, below).
+- **Each study's baseline carries its own luck.** Pairing on seeds barely reduces noise (one change alters the whole
+  match), so every condition compared with the same unchanged matches shares their error: Studies 14 and 14b read
+  about 0.04-0.05 xPts per game high for every condition, Study 12's baseline converted chances poorly (1.27 goals
+  from 1.47 xG), which shows as more goals for every condition. Comparisons between conditions are unaffected.
+
+**Curvature and combinations, from the same 50,000 matches** (`port/validation/random_curvature.py`): starters begin
+at different levels, so the value of a level can be compared between players of the same position.
+- **Jumping Reach is strongly convex** (t 7.0): each level is worth about 0.028 xPts a season more per level the
+  player already has. Roughly nothing for a player at 7, about 0.29 for one at 17. This matches Study 12 (it pays
+  above 9-12) and Purity's finding.
+- **No other attribute's value depends on the starting level** within 8-17 (Pace, Acceleration, Stamina,
+  Anticipation, Balance, Dribbling, Concentration, Strength: |t| < 1.7).
+- **Pace and Acceleration reinforce each other in the same player** (t 3.7): +5 in both is worth about 7% more than
+  the two separately. Of seven other pairs tested, Jumping Reach × Heading (more, in goals, t 2.7) and Passing × Vision
+  (less, t −2.4) are leads only.
 
 ## What this means
 
@@ -162,8 +240,9 @@ Per season, +1 level of the goalkeeper's attribute; t in brackets. The rest are 
 
 ## Caveats
 
-- **One style so far** (Gegenpress, two strikers); the Catenaccio run will show how much the weights depend on the
-  tactic and the formation.
+- **Two styles.** The order holds across them, the sizes don't: read the numbers as typical, not exact for another
+  tactic.
+- **Catenaccio stopped at 34,340 of 50,000 matches**; it can be resumed with the same `run` command.
 - **One synthetic squad,** levels mostly 6-18. Each estimate is the average slope over a ±5 range; a two-level design
   can't show curvature within it (Study 12 measured that).
 - **Single matches:** no injuries, fitness or form over a season, so Natural Fitness and Injury Proneness can't show.
@@ -178,6 +257,8 @@ Per season, +1 level of the goalkeeper's attribute; t in brackets. The rest are 
 .venv/bin/python port/validation/random_study.py run runs/random/gegenpress --workers 7     # about 10 hours with 7 workers
 .venv/bin/python port/validation/random_study.py report runs/random/gegenpress
 ```
+
+Catenaccio: the same with `--style Catenaccio` and `runs/random/catenaccio`.
 
 Regression: the outcome on the per-position sums of the level changes (one column per attribute and position), with a
 constant per setting; the team model has one column per attribute for the ten outfield players. Position differences:

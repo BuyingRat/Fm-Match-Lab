@@ -56,6 +56,13 @@ complexity.
 - **Tactic complexity showed no clear effect** when changed during the match. Probably the game applies it before
   kick-off; this is still open.
 
+## Familiarity areas ([Study 24](studies/24-familiarity-areas.md))
+
+- **Chance creation and pressing intensity matter most, in both Gegenpress and Control Possession:** each costs about
+  0.07-0.08 xPts per game (about 3 points a season) when it falls from 50 to 20 (t 6-7); out-of-possession shape
+  about a third of that; the other five areas show little.
+- **Raising an area above 50 gains nothing measurable** in either style: familiarity is a floor to keep.
+
 ## Attributes by playing style ([Study 9](studies/09-attributes-by-style.md))
 
 - **Physical attributes win under every style, possession styles included.** +5 in Pace, Acceleration, Stamina, Work
@@ -115,9 +122,15 @@ complexity.
   every position.
 - **Forwards' speed and jumping create chances; defenders' prevent them.** Finishing and Strength for forwards add
   goals, not xG.
-- **Goalkeepers: Agility and Reflexes,** each about 0.8-0.9 fewer goals a season per level, at the same xG against.
-- **Agrees with Study 13 (within its noise) and with a 200,000-match test on FM Arena** (correlation 0.80 over 240
-  cells); that test's lone striker is worth about twice each of our two.
+- **Goalkeepers: Agility and Reflexes,** each about 0.8-1.1 fewer goals a season per level, at the same xG against.
+- **The style changes the sizes, not the order:** Catenaccio (deep, three centre-backs) has the same leaders, but its
+  centre-backs gain less from speed and its central attacking midfielders more; the goalkeeper result repeats.
+- **The model predicts 247 conditions of earlier studies** (correlation 0.94; within noise for changes of ±5 at levels
+  9-20). Below 9, Pace and Acceleration fall faster than linear; Jumping Reach is convex (worth far more for a player
+  who already jumps well, t 7); Pace and Acceleration reinforce each other in the same player (t 3.7).
+- **Agrees with Study 13 (within its noise) and, in pattern, with a 200,000-match test on FM Arena** (correlation 0.80
+  over 240 cells); that test's striker values are two to three times ours, and having one striker instead of two
+  doesn't explain it.
 
 ## Team strength ([Study 14](studies/14-team-strength.md))
 
