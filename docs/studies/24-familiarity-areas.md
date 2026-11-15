@@ -14,6 +14,10 @@ matter? Does the answer depend on the style?
   Familiarity is a floor to keep, not a ceiling to push.
 - **The styles agree** (p 0.27 for the eight swings, p 0.98 for the losses). Study 24's "Control Possession shows no
   area" was a lack of precision.
+- **What the engine does explains it.** Each area strengthens two of every player's attributes during play; the two
+  areas that matter most are the two tied to Anticipation, the attribute with the most value of its own. The boost is
+  limited, and a reasonably trained area already gets most of it: neglecting an area takes the boost away, while
+  pushing it higher adds little. A prediction built on this fits the measured losses (correlation 0.94-0.96).
 
 ## Design
 
@@ -41,6 +45,24 @@ these matches:
 | 20 | 46-52 |
 
 So the baseline is already a well-understood tactic; 20 is a clearly neglected area, 80 a fully learned one.
+
+**What an area does in the match.** Read from the engine (without the formulas): during play, each area strengthens
+two of every player's attributes, mostly mental ones, when he reads the game, decides or contests the ball. The
+stronger the area, the bigger the boost, up to a limit; around the baseline most players already get close to that
+limit.
+
+| Area | Attributes it strengthens |
+|---|---|
+| In-possession shape | First Touch, and the team's cohesion |
+| Passing style | Decisions, Composure |
+| Build-up | Technique, Vision |
+| Chance creation | Anticipation, Off the Ball |
+| Out-of-possession shape | Concentration, Marking |
+| Line of engagement | Work Rate, Aggression |
+| Pressing intensity | Anticipation, Tackling |
+| Pressing trap | Decisions, Positioning |
+
+Familiarity never touches the physical attributes (Pace, Acceleration, Jumping Reach, Stamina).
 
 ## Study 24b: every area at a random level
 
@@ -127,20 +149,47 @@ swing is +0.03 xPts.
   −0.08 at 20, Control Possession −0.01; z −1.4) and Line of engagement in the swing (z −1.8).
 - **Chance creation is first in both orders.**
 
-## Why these two areas
+## Why: what each area strengthens
 
-- **Lowering hurts, raising doesn't:** the baseline is already high (an area value around 76). Study 3 found
-  familiarity flat above the middle of the scale; this is the same plateau, area by area.
-- **Chance creation and pressing intensity are about reading the game.** Their effects look like Anticipation's
-  (Study 13b): more chances created and fewer conceded. The areas that matter least are the ones tied to positional
-  and technical play, which are worth little in these matches as attributes too.
+If an area matters because of the attributes it strengthens, its effect should follow those attributes' value. Before
+the results were in, each area's effect was predicted from the two attributes it strengthens (their value per level
+from Study 13b, Gegenpress, for the ten outfield players), how much of a boost each level of the area gives them, and
+the limit on that boost. The prediction treats the boost as worth what the attribute is worth everywhere it is used,
+so it is an upper bound. Measured: Study 24b, xPts per game.
+
+| Area | Attributes | Predicted: lower to 20 | raise to 80 | Gegenpress: lower | raise | Control Possession: lower | raise |
+|---|---|---|---|---|---|---|---|
+| Chance creation | Anticipation, Off the Ball | −0.099 | +0.014 | −0.079 | +0.021 | −0.082 | +0.011 |
+| Pressing intensity | Anticipation, Tackling | −0.088 | +0.012 | −0.081 | +0.019 | −0.066 | +0.005 |
+| Out-of-possession shape | Concentration, Marking | −0.050 | +0.007 | −0.024 | +0.001 | −0.029 | +0.017 |
+| Passing style | Decisions, Composure | −0.033 | +0.005 | −0.023 | −0.002 | −0.022 | +0.004 |
+| Line of engagement | Work Rate, Aggression | −0.024 | +0.014 | +0.002 | +0.005 | +0.009 | +0.004 |
+| Pressing trap | Decisions, Positioning | −0.020 | +0.003 | −0.004 | +0.005 | +0.006 | −0.003 |
+| Build-up | Technique, Vision | −0.018 | +0.003 | −0.019 | +0.005 | −0.012 | −0.012 |
+| In-possession shape | First Touch, team cohesion | −0.012 | +0.002 | −0.015 | −0.010 | −0.008 | −0.017 |
+
+Measured margins: about ±0.022 at 95% for each cell.
+
+- **The losses fit:** predicted and measured correlate 0.94 (Gegenpress) and 0.96 (Control Possession), at 0.77 and
+  0.71 of the predicted size; an upper bound should come out above the truth.
+- **The asymmetry fits:** because the boost is limited and the baseline already gets most of it, the prediction has
+  raising worth about a seventh of lowering for the two leading areas; measured a quarter (Gegenpress) and a ninth
+  (Control Possession).
+- **Anticipation is the reason for the order.** It's the only one of these attributes with a solid value of its own
+  (Study 13b: +0.08 xPts a season per level for one player, against at most +0.05 for Concentration and +0.02 or less
+  for the others), and two areas strengthen it. Out-of-possession shape follows through Concentration.
+- **Two areas fit less well:** out-of-possession shape costs half its prediction, and line of engagement nothing.
+  Their attributes' values are small and partly come from other uses of the attribute.
+- **Study 24's first prediction ignored the limit** and gave the right order at twice the size.
 
 ## What this means
 
 - **Keep chance creation and pressing intensity up, whatever the style.** Letting either slip from a decent level to a
   low one costs about 3 points a season each; out-of-possession shape about 1.
 - **Don't spend training pushing any area above a decent level:** no area pays above it.
-- **The other five areas matter little** at this resolution.
+- **The other five areas matter little** at this resolution: an area is worth as much as the attributes it
+  strengthens, and Positioning, Technique, Vision, Composure, Decisions, Marking, Tackling, Work Rate and Aggression
+  are worth little in these matches.
 
 ## Caveats
 

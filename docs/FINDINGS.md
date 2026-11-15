@@ -62,6 +62,9 @@ complexity.
   0.07-0.08 xPts per game (about 3 points a season) when it falls from 50 to 20 (t 6-7); out-of-possession shape
   about a third of that; the other five areas show little.
 - **Raising an area above 50 gains nothing measurable** in either style: familiarity is a floor to keep.
+- **Why:** each area strengthens two of every player's attributes during play, up to a limit that a reasonably
+  trained area already nearly reaches; the two that matter most both strengthen Anticipation (a prediction from this
+  fits the measured losses, correlation 0.94-0.96).
 
 ## Attributes by playing style ([Study 9](studies/09-attributes-by-style.md))
 
