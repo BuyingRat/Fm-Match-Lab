@@ -132,11 +132,16 @@ def build(out, defaults, presets, team, fmfs):
 
 
 def summarise(path):
-    r = {'goals': [[], []], 'cards': [0, 0]}
+    r = {'goals': [[], []], 'cards': [0, 0], 'subs': []}   # subs: [side, minute, roster index off, on, lineup slot taken]
+    swaps = {}   # a substitution: one player off (slot 255) and one on at the same clock; brief flips keep their slot
     for line in open(path):
         e = json.loads(line)
         ev = e.get('event')
-        if ev == 'natural_match_finished': r['score'] = e['score']
+        if ev == 'native_on_pitch_change':
+            v = swaps.setdefault((e['side'], e['clock']), ([], []))
+            if not e['on'] and e['slot'] == 255: v[0].append(e['roster_index'])
+            elif e['on']: v[1].append((e['roster_index'], e['slot']))
+        elif ev == 'natural_match_finished': r['score'] = e['score']; r['end'] = round(e.get('clock', 0) / 240, 1)
         elif ev == 'native_match_statistics':
             for k in ('xg', 'shots', 'shots_on_target', 'possession', 'passes', 'completed_passes'):
                 r[k] = [round(t[k], 4) if isinstance(t[k], float) else t[k] for t in e['teams']]
@@ -147,6 +152,9 @@ def summarise(path):
                 if i['native_type'] in (1, 3) and i['side'] < 2: r['goals'][i['side']].append(i['nominal_minute'] + i['added_minute'])
                 if i['native_type'] == 2 and i['side'] < 2: r['goals'][1 - i['side']].append(i['nominal_minute'] + i['added_minute'])
                 if i['native_type'] == 38 and i['side'] < 2: r['cards'][i['side']] += 1
+    for (side, clock), (offs, ons) in sorted(swaps.items(), key=lambda x: x[0][1]):
+        if offs and len(offs) == len(ons):
+            r['subs'] += [[side, round(clock / 240, 1), o, i, s] for o, (i, s) in zip(sorted(offs), sorted(ons))]
     return r if 'score' in r and 'xg' in r else None
 
 

@@ -1,6 +1,6 @@
 """macOS platform layer for the desktop service.
 
-The native host is `fm27_mac_host` (x86_64, runs under Rosetta) and loads the unchanged
+The native host is `fm27_mac_host` (arm64 native, or x86_64 under Rosetta) and loads the unchanged
 `game_plugin.bundle` from the user's FM27 install; Steam must be running and logged in.
 """
 import os

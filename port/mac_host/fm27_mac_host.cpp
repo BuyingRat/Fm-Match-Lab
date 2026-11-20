@@ -41,6 +41,19 @@ static uint32_t requested_seed = 0;
 static int tick_step = 1;
 
 template <class T = void*> static T at(uintptr_t rva) { return (T)(base + rva); }
+
+// Engine functions that return an object through a hidden return slot. x86_64 passes the slot as the first argument
+// (rdi), so plain calls with the slot first work there; arm64 passes it in x8. Declaring a non-trivially-copyable
+// return type makes the compiler use the hidden slot on both, and C++17 guaranteed elision builds it at `out`.
+struct HiddenReturn { uintptr_t v[4]; HiddenReturn(const HiddenReturn&); ~HiddenReturn() {} };
+template <class R = void*, class... A> static R call_sret(void* fn, void* out, A... a) {
+#if defined(__x86_64__)
+    return ((R (*)(void*, A...))fn)(out, a...);
+#else
+    new (out) HiddenReturn(((HiddenReturn (*)(A...))fn)(a...));
+    return R(out);
+#endif
+}
 #define LOG(...) do { fprintf(log_file, __VA_ARGS__); fputc('\n', log_file); fflush(log_file); } while (0)
 
 static bool (*exit_cleanup)() = nullptr;
@@ -62,12 +75,29 @@ static bool in_image(const void* p, uintptr_t lo, uintptr_t hi) {
 // ---- crash containment (Windows: vectored exception handler) ----
 static void on_fault(int sig, siginfo_t* info, void* uctx) {
     auto mc = ((ucontext_t*)uctx)->uc_mcontext;
+#if defined(__x86_64__)
     uintptr_t pc = mc->__ss.__rip;
+#else
+    uintptr_t pc = (uintptr_t)__darwin_arm_thread_state64_get_pc(mc->__ss);
+#endif
     fprintf(log_file, "{\"event\":\"exception\",\"signal\":%d,\"fault\":\"0x%llx\",\"pc\":\"0x%llx\",\"engine_rva\":\"0x%llx\"}\n",
             sig, (unsigned long long)(uintptr_t)info->si_addr, (unsigned long long)pc,
             (unsigned long long)(base && pc >= (uintptr_t)base ? pc - (uintptr_t)base : 0));
+    { Dl_info di{}; if (dladdr((void*)pc, &di) && di.dli_sname)   // outside the engine: name the system routine
+        fprintf(log_file, "{\"event\":\"exception_symbol\",\"image\":\"%s\",\"symbol\":\"%s\",\"offset\":%llu}\n", di.dli_fname ? di.dli_fname : "",
+                di.dli_sname, (unsigned long long)(pc - (uintptr_t)di.dli_saddr)); }
+#if defined(__aarch64__)
+    fprintf(log_file, "{\"event\":\"exception_lr\",\"lr\":\"0x%llx\",\"engine_rva\":\"0x%llx\",\"x0\":\"0x%llx\",\"x1\":\"0x%llx\",\"x8\":\"0x%llx\"}\n",
+            (unsigned long long)__darwin_arm_thread_state64_get_lr(mc->__ss),
+            (unsigned long long)(base ? __darwin_arm_thread_state64_get_lr(mc->__ss) - (uintptr_t)base : 0),
+            (unsigned long long)mc->__ss.__x[0], (unsigned long long)mc->__ss.__x[1], (unsigned long long)mc->__ss.__x[8]);
+#endif
     // frame-pointer walk (engine is built with frame pointers on macOS)
+#if defined(__x86_64__)
     auto fp = (uintptr_t*)mc->__ss.__rbp;
+#else
+    auto fp = (uintptr_t*)__darwin_arm_thread_state64_get_fp(mc->__ss);
+#endif
     for (int depth = 0; depth < 24 && fp; depth++) {
         uintptr_t ret = fp[1];
         fprintf(log_file, "{\"event\":\"native_av_frame\",\"depth\":%d,\"pc\":\"0x%llx\",\"engine_rva\":\"0x%llx\"}\n", depth,
@@ -92,14 +122,23 @@ static void install_fault_handler() {
 }
 
 // ---- image identity (Windows: PE layout + byte ranges; Mac: LC_UUID of the loaded slice) ----
+#if defined(__aarch64__)
+#define FM27_MAC_ARCH "arm64"
+#else
+#define FM27_MAC_ARCH "x86_64"
+#endif
 static bool known_image(const mach_header_64* mh) {
+#if defined(__x86_64__)
     if (mh->cputype != CPU_TYPE_X86_64) return false;
+#else
+    if (mh->cputype != CPU_TYPE_ARM64) return false;
+#endif
     auto cmd = (const load_command*)(mh + 1);
     for (uint32_t i = 0; i < mh->ncmds; i++) {
         if (cmd->cmd == LC_UUID) {
             auto u = (const uuid_command*)cmd;
             bool ok = !memcmp(u->uuid, kUuid, 16);
-            LOG("{\"event\":\"native_engine_compatibility\",\"profile\":\"fm27-" FM27_MAC_GAME_VERSION "-macos-x86_64\",\"compatible\":%s}",
+            LOG("{\"event\":\"native_engine_compatibility\",\"profile\":\"fm27-" FM27_MAC_GAME_VERSION "-macos-" FM27_MAC_ARCH "\",\"compatible\":%s}",
                 ok ? "true" : "false");
             return ok;
         }
@@ -130,6 +169,24 @@ static void release_ref(void*& value) {
 #include "fm27_mac_episode.h"
 #include "fm27_mac_execution.h"
 #include "fm27_mac_dump.h"
+// Engine research (private, never published): the attribute tracer and the research switches live in engine_research/.
+// Without that folder the host builds with empty hooks.
+#if __has_include("../../engine_research/host/fm27_mac_attr_trace.h")
+#include "../../engine_research/host/fm27_mac_attr_trace.h"
+#else
+namespace attr_trace {
+static bool enabled = false, window_done = false;
+static void install(unsigned char*) {} static void begin_prep() {} static void end_prep() {}
+static void begin_step(unsigned char*) {} static void end_step() {} static void write_out(const char*) {}
+}
+#endif
+#if __has_include("../../engine_research/host/fm27_mac_research.h")
+#include "../../engine_research/host/fm27_mac_research.h"
+#else
+namespace research {
+static void before_prepare(unsigned char*) {} static void after_prepare(unsigned char*) {} static void after_step(unsigned char*) {}
+}
+#endif
 
 static void check_cancel() {
     if (!cancel_file.empty() && access(cancel_file.c_str(), F_OK) == 0) {
@@ -184,13 +241,18 @@ static void bootstrap_engine() {
         EngineString name;
         ((void* (*)(void*, const char*, int))at(fn_string_from_c))(&name, path.c_str(), -1);
         void* file = nullptr; void* folder = nullptr;
-        ((void* (*)(void*, void*, void*))at(fn_file_open))(&file, &name, resources + res_filesystem);
-        ((void* (*)(void*, void*, uintptr_t))at(fn_folder_open))(&folder, &file, *at<uintptr_t*>(g_folder_key));
+        if (getenv("FM27_MAC_DEBUG_BOOT")) {
+            uintptr_t w[6]; memcpy(w, resources + res_filesystem - 0x18, sizeof w);
+            LOG("{\"event\":\"debug_boot\",\"name\":\"0x%llx\",\"fs_words\":[\"0x%llx\",\"0x%llx\",\"0x%llx\",\"0x%llx\",\"0x%llx\",\"0x%llx\"]}",
+                (unsigned long long)name.p[0], (unsigned long long)w[0], (unsigned long long)w[1], (unsigned long long)w[2], (unsigned long long)w[3], (unsigned long long)w[4], (unsigned long long)w[5]);
+        }
+        call_sret(at(fn_file_open), &file, (void*)&name, (void*)(resources + res_filesystem));
+        call_sret(at(fn_folder_open), &folder, (void*)&file, *at<uintptr_t*>(g_folder_key));
         LOG("{\"event\":\"native_archive_opened\",\"path\":\"%s\",\"success\":%s}", relative, folder ? "true" : "false");
         if (!folder) continue;
         if (!strcmp(relative, "shared/data/simatch.fmf")) simatch_folder = folder;
         EngineString folder_path;
-        ((void* (*)(void*, void*))(*(void***)folder)[vslot_folder_path])(&folder_path, folder);
+        call_sret((*(void***)folder)[vslot_folder_path], &folder_path, (void*)folder);
         ((void (*)(void*, void*, void*))at(fn_register_root))(resources, &folder_path, at(g_updates_folder_sym));
     }
     fmf_probe(resources);
@@ -251,9 +313,11 @@ static void log_xg_models() {   // every job, as on Windows
     if (!versions || !models) finish(96);
 }
 
+static unsigned job_serial = 0;   // counts matches in this process (worker mode runs up to 64)
 static int native_match() {
     using clock = std::chrono::steady_clock;
     auto t0 = clock::now();
+    job_serial++;
     scenario_edits.clear(); memset(original_roster, 0, sizeof(original_roster));
     bootstrap_engine();
     log_xg_models();
@@ -263,9 +327,8 @@ static int native_match() {
     EngineString recording_path;
     ((void* (*)(void*, const char*, int))at(fn_string_from_c))(&recording_path, fixture.c_str(), -1);
     void* recording_file = nullptr; void* stream = nullptr; void* reader_extra = nullptr;
-    ((void* (*)(void*, void*, void*))at(fn_file_open))(&recording_file, &recording_path, resources + res_filesystem);
-    struct Ret16 { uint64_t a, b; };
-    ((Ret16 (*)(void*, void*, uintptr_t, void*))at(fn_reader_factory))(&stream, &recording_file, 0, &reader_extra);
+    call_sret(at(fn_file_open), &recording_file, (void*)&recording_path, (void*)(resources + res_filesystem));
+    call_sret(at(fn_reader_factory), &stream, (void*)&recording_file, (uintptr_t)0, (void*)&reader_extra);
     LOG("{\"event\":\"native_recording_stream_opened\",\"success\":%s}", stream ? "true" : "false");
     if (!stream) finish(104);
     __atomic_add_fetch((int*)((unsigned char*)stream + 8), 1, __ATOMIC_SEQ_CST);
@@ -422,7 +485,14 @@ static int native_match() {
         }
     }
     auto t_prepare = clock::now();
+    bool trace_after_prep = getenv("FM27_MAC_ATTR_TRACE_AFTER_PREP") != nullptr;   // objects created by preparation (statistics)
+    if (scenario_file.empty() && !trace_after_prep) attr_trace::install(match);
+    attr_trace::begin_prep();
+    research::before_prepare(match);
     ((void (*)(void*))at(fn_match_prepare))(match);
+    if (scenario_file.empty() && trace_after_prep) attr_trace::install(match);
+    attr_trace::end_prep();
+    research::after_prepare(match);
     auto t_ready = clock::now();
     for (const auto& edit : scenario_edits) if (edit.kind == 17) {
         auto team = team_of(match, edit.side);
@@ -567,6 +637,7 @@ static int native_match() {
             auto ms = [](auto a, auto b) { return (long long)std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
             LOG("{\"event\":\"native_timings\",\"input_bootstrap_ms\":%lld,\"preparation_ms\":%lld,\"simulation_ms\":%lld,\"total_ms\":%lld}",
                 ms(t0, t_prepare), ms(t_prepare, t_ready), ms(t_ready, now), ms(t0, now));
+            attr_trace::write_out("finished");
             execution_snapshot(match, "finished");
             record_summary(match, "finished");
             desktop_match_statistics(match);
@@ -591,26 +662,30 @@ static int native_match() {
         if (tick >= 47995) { LOG("{\"event\":\"watchdog_boundary_rejected\"}"); finish(90); }
         int target = std::min(tick + tick_step, 47995);
         execution_apply(match, true);
+        attr_trace::begin_step(match);
         ((void (*)(void*, unsigned, int))at(fn_match_step))(match, 1, target);
+        attr_trace::end_step();
+        research::after_step(match);
+        if (attr_trace::window_done) { attr_trace::write_out("window"); attr_trace::enabled = false; }
         {   // in-match tactical changes by the match's managers: mentality and the 22 role/position cells, logged when they change
-            static unsigned char last_m[2]; static uint32_t last_pos[2][32]; static uint64_t last_role[2][32]; static void* last_match = nullptr;
+            static unsigned char last_m[2]; static uint32_t last_pos[2][32]; static uint64_t last_role[2][32]; static unsigned last_job = 0;   // per job, not per match address (worker mode reuses addresses)
             for (unsigned side = 0; side < 2; side++) {
                 auto manager = manager_of(team_of(match, side));
                 unsigned char m = manager[mg_creator_live + 0x25];
                 std::string diff;
                 for (unsigned e = 0; e < 32; e++) if (e % 16 < 11) {
                     auto c = tactic_cell(manager, e); uint32_t pos = *(uint32_t*)c; uint64_t role = *(uint64_t*)(c + cell_role);
-                    if (last_match == match && (pos != last_pos[side][e] || role != last_role[side][e])) {
+                    if (last_job == job_serial && (pos != last_pos[side][e] || role != last_role[side][e])) {
                         char item[160]; snprintf(item, sizeof item, "%s[%u,%u,%u,\"%llu\",\"%llu\"]", diff.empty() ? "" : ",", e, last_pos[side][e], pos, (unsigned long long)last_role[side][e], (unsigned long long)role);
                         diff += item;
                     }
                     last_pos[side][e] = pos; last_role[side][e] = role;
                 }
-                if (last_match == match && (m != last_m[side] || !diff.empty()))
+                if (last_job == job_serial && (m != last_m[side] || !diff.empty()))
                     LOG("{\"event\":\"native_tactic_change\",\"side\":%u,\"mentality\":[%u,%u],\"cells\":[%s],\"clock\":%d}", side, last_m[side], m, diff.c_str(), *(int*)(match + m_clock));
                 last_m[side] = m;
             }
-            last_match = match;
+            last_job = job_serial;
         }
         {   // substitutions: on-pitch flag (+0x1e26 == 1) per input roster player; lineup slot at +0x1e51 (255 = off)
             static int on_last[2][26]; static bool on_init = false;
@@ -659,7 +734,8 @@ static int native_match() {
                     fputs("\"}\n", snap);
                 }
                 if (snap) fflush(snap);
-                next_clock = clock + 1200;
+                static int every_clock = getenv("FM27_MAC_ROSTER_TRACE_EVERY") ? atoi(getenv("FM27_MAC_ROSTER_TRACE_EVERY")) : 1200;
+                next_clock = clock + (every_clock > 0 ? every_clock : 1200);
             }
         }
         int after = *(int*)(match + m_tick);
@@ -787,11 +863,11 @@ int main(int argc, char** argv) {
     setenv("SteamGameId", "4530370", 1);
     setenv("SteamNoOverlayUI", "1", 1);
     if (!check_image.empty()) {
-        // Identity check without running engine code: read LC_UUID of the x86_64 slice from the file.
+        // Identity check without running engine code: read LC_UUID of the slice from the file.
         std::ifstream f(image, std::ios::binary); std::vector<unsigned char> d((std::istreambuf_iterator<char>(f)), {});
         bool ok = false;
         for (size_t i = 0; i + 16 <= d.size() && !ok; i += 4) if (!memcmp(&d[i], kUuid, 16)) ok = true;
-        LOG("{\"event\":\"native_engine_compatibility\",\"profile\":\"fm27-" FM27_MAC_GAME_VERSION "-macos-x86_64\",\"compatible\":%s,\"method\":\"lc_uuid_in_file\"}", ok ? "true" : "false");
+        LOG("{\"event\":\"native_engine_compatibility\",\"profile\":\"fm27-" FM27_MAC_GAME_VERSION "-macos-" FM27_MAC_ARCH "\",\"compatible\":%s,\"method\":\"lc_uuid_in_file\"}", ok ? "true" : "false");
         return ok ? 0 : 99;
     }
     void* h = dlopen(image.c_str(), RTLD_NOW | RTLD_LOCAL);

@@ -5,7 +5,9 @@ install and drives the original match engine headlessly. Technical details, evid
 
 ## Requirements
 
-- macOS on Apple Silicon or Intel. The host is an x86_64 binary; on Apple Silicon it runs under Rosetta 2.
+- macOS on Apple Silicon or Intel. On build 27.0.1 (2503222) the host is built natively for Apple Silicon (arm64,
+  about 1.3x faster than under Rosetta, identical results); on the older builds, or with
+  `scripts/build_native_mac.py --arch x86_64`, it is an x86_64 binary that runs under Rosetta 2 on Apple Silicon.
 - FM27 installed through Steam, one of the mapped builds. The host refuses any other: it checks the x86_64 slice's
   `LC_UUID`, and `scripts/build_native_mac.py` compiles the address table for the build it finds.
 
@@ -14,8 +16,12 @@ install and drives the original match engine headlessly. Technical details, evid
   | 27.0.0+2493426 | `0981AB31-AC3B-3D93-944F-47FE4B59CD9E` | 0x1b000000 |
   | 27.0.1+2494769 | `94CDDC80-8474-327A-85E0-E4FF95DC6893` | 0x1b000100 |
   | 27.0.1+2503222 (12 November hotfix) | `DD0EE157-4C9C-31A7-81DD-0D1122E62FC7` | 0x1b000100 |
+  | 27.1.0+2505117 (18 November update) | `864625AF-9AA9-3254-8EC5-47E9D486132A` | 0x1b010000 |
 
-  The hotfix moved two data constants and nothing the match engine uses; 36 of 36 matches played on the previous
+  27.1.0 moved most functions and grew two records the host reads (the player record and the manager record);
+  `port/map/offset_carry.py` carried the field offsets, and the host applies them for that build (x86_64 for now).
+  Saved matches from 27.0.1 open and play on it; levels are close (300 replays: 1.85 against 1.97 points per game,
+  the same xG, about 1.6 more shots a match). The 27.0.1 hotfix moved two data constants and nothing the match engine uses; 36 of 36 matches played on the previous
   build replay identically on it. On a build not in this table, `scripts/setup.py` stops with "Unsupported FM27
   build" and the app runs nothing. If FM27 updates after the set-up, the app says so and asks you to run the set-up
   again.

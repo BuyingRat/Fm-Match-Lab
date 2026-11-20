@@ -81,7 +81,7 @@ def locate(old, new, target, matched, depth=3):
         cand, how = (nc[k][1], 'ordinal') if k < len(nc) and len(oc) == len(nc) else (None, None)
         if cand is None:   # call count changed (inlining): the call with the same argument set-up
             want = next(d for a, _, d in setup(old, caller) if a == site)
-            scored = sorted(((len(want & d) / len(want | d) if want | d else 0, t) for _, t, d in setup(new, new_caller)), reverse=True)
+            scored = sorted(((len(want & d) / len(want | d) if want | d else 0, t) for _, t, d in setup(new, new_caller) if t is not None), reverse=True)
             if scored and scored[0][0] >= 0.8 and (len(scored) == 1 or scored[1][0] < scored[0][0]): cand, how = scored[0][1], f'argument set-up {scored[0][0]:.2f}'
         evidence.append({'caller': hex(caller), 'new_caller': hex(new_caller), 'ordinal': k, 'calls': [len(oc), len(nc)], 'how': how, 'candidate': hex(cand) if cand else None})
         if cand: votes[cand] += 1

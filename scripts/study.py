@@ -15,9 +15,16 @@ in points per game and expected-goal difference (xGD) with a t value: |t| >= 2 i
 Condition specs (your team only; the opponent is unchanged):
   attribute:NAME[:STEP]      whole squad -STEP and +STEP in-game points (default 5); reported per point
   attributes[:STEP]          every attribute, as above (109 conditions)
+  trait:NAME / trait:-NAME   set or clear one player trait across the whole squad (from private/traits.json)
+  traits                     set and clear every known player trait, one at a time
+  profile:FIELD=VALUE        one personality/profile value for the whole squad, e.g. profile:pressure=1 (fields and
+                             ranges in src/fm27_profiles.py: professionalism, sportsmanship, temperament, pressure, ...)
   familiarity:LEVEL          the eight tactical areas of every player's effectiveness record held at LEVEL (0-100)
   area:NAME=LEVEL            one tactical area only (in-possession-shape, passing-style, build-up, chance-creation,
                              out-of-possession-shape, line-of-engagement, pressing-intensity, pressing-trap)
+  record:FIELD=LEVEL         one other byte of every player's effectiveness record held at LEVEL: ability,
+                             team-complexity, role-complexity, complexity-3, capability, suitability, overall,
+                             buy-in, next-match (as in docs/studies/03-tactical-familiarity.md)
   start:FIELD=VALUE          start state for the whole squad: condition=90 (percent), sharpness=75 (percent),
                              morale=1-20, team_cohesion=low|high|0-100, club_cohesion=0-100
   mentality:+1 / mentality:-2
@@ -49,6 +56,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'port/validation')); sys.path.insert(0, str(ROOT / 'src')); sys.path.insert(0, str(ROOT / 'scripts'))
 os.environ.setdefault('FM27_ENGINE_ROOT', str(ROOT / 'private/engine'))
 os.environ.setdefault('FM27_DESKTOP_DATA', tempfile.mkdtemp(prefix='fm27-study-'))
+RECORD_FIELDS = {'ability': 0x00, 'team-complexity': 0x19, 'role-complexity': 0x1a, 'complexity-3': 0x1b, 'capability': 0x1c,
+                 'suitability': 0x1d, 'overall': 0x1e, 'buy-in': 0x1f, 'next-match': 0x20}   # effectiveness record bytes
 AREAS = [o + k for o in range(1, 25, 3) for k in (0, 1, 2)]   # the 24 area bytes of the effectiveness record
 AREA_NAMES = ['in-possession-shape', 'passing-style', 'build-up', 'chance-creation', 'out-of-possession-shape',
               'line-of-engagement', 'pressing-intensity', 'pressing-trap']   # the record's eight triples, in order
@@ -134,6 +143,11 @@ def attribute_ids():
     return {x['name'].lower(): (x['id'], x['name']) for x in json.loads((ROOT / 'private/catalog.json').read_text(encoding='utf8'))['attributes'] if not x['position']}
 
 
+def trait_bits():
+    raw = json.loads((ROOT / 'private/traits.json').read_text(encoding='utf8'))
+    return {name.lower(): (int(bit), name) for bit, name in raw.items()}
+
+
 def expand(spec):
     """A spec string -> list of conditions {'name', 'kind', ...}."""
     kind, _, arg = spec.partition(':')
@@ -153,6 +167,10 @@ def expand(spec):
         if area not in AREA_NAMES: raise SystemExit(f'Unknown area {area!r}; one of {", ".join(AREA_NAMES)}')
         k = AREA_NAMES.index(area)
         return [{'name': f'{area} {int(level)}', 'kind': 'familiarity', 'level': int(level), 'offsets': [1 + 3 * k + j for j in range(3)]}]
+    if kind == 'record':
+        field, _, level = arg.partition('=')
+        if field not in RECORD_FIELDS: raise SystemExit(f'Unknown record field {field!r}; one of {", ".join(RECORD_FIELDS)}')
+        return [{'name': f'{field} {int(level)}', 'kind': 'familiarity', 'level': int(level), 'offsets': [RECORD_FIELDS[field]]}]
     if kind == 'start':
         field, _, value = arg.partition('=')
         return [{'name': f'{field}={value}', 'kind': 'start', 'field': field, 'value': value}]
@@ -175,6 +193,43 @@ def expand(spec):
         return [{'name': f'tweak {t["m_Name"]}', 'kind': 'tweak', 'tweak': t['m_Name']}]
     if kind == 'tweaks':
         return [{'name': f'tweak {t["m_Name"]}', 'kind': 'tweak', 'tweak': t['m_Name']} for t in tweaks()]
+    if kind == 'traits':
+        out = []
+        for _, name in sorted(trait_bits().values(), key=lambda x: x[0]):
+            bit = next(b for b, n in trait_bits().values() if n == name)
+            out.append({'name': f'{name} +', 'kind': 'trait', 'bit': bit, 'enable': True})
+            out.append({'name': f'{name} -', 'kind': 'trait', 'bit': bit, 'enable': False})
+        return out
+    if kind == 'trait':
+        enable = True
+        raw_arg = arg.strip()
+        if raw_arg.startswith('-'):
+            enable = False
+            raw_arg = raw_arg[1:].strip()
+        elif raw_arg.startswith('+'):
+            raw_arg = raw_arg[1:].strip()
+        if raw_arg.isdigit():
+            bit = int(raw_arg)
+            if not (0 <= bit < 64):
+                raise SystemExit(f'Trait bit out of range (0-63): {bit}')
+            by_bit = {b: n for b, n in trait_bits().values()}
+            name = by_bit.get(bit, f'bit {bit}')
+        else:
+            traits = trait_bits()
+            if raw_arg.lower() not in traits:
+                raise SystemExit(f'Unknown trait {arg!r}')
+            bit, name = traits[raw_arg.lower()]
+        return [{'name': f'{name} {"+" if enable else "-"}', 'kind': 'trait', 'bit': bit, 'enable': enable}]
+    if kind == 'profile':
+        import fm27_profiles
+        field, _, value = arg.partition('=')
+        field = field.strip().lower()
+        if field not in fm27_profiles.FIELDS or field.startswith('traits') or not value.strip().lstrip('-').isdigit():
+            raise SystemExit(f'Unknown profile field or value {arg!r} (fields: {", ".join(fm27_profiles.FIELDS)})')
+        lo, hi = fm27_profiles.FIELDS[field][1:]
+        v = int(value)
+        if not lo <= v <= hi: raise SystemExit(f'{field} must be {lo}-{hi}')
+        return [{'name': f'{field}={v}', 'kind': 'profile', 'field': field, 'value': v}]
     raise SystemExit(f'Unknown condition {spec!r} (see --help)')
 
 
@@ -259,6 +314,26 @@ def edit_scenario(base, side, c):
         t['in_match'] = c['mode']
     elif c['kind'] == 'tweak':
         s = apply_tweak(A, s, side, c['tweak'])
+    elif c['kind'] == 'trait':
+        bit = c['bit']
+        field = 'traits_low' if bit < 32 else 'traits_high'
+        mask = 1 << (bit if bit < 32 else bit - 32)
+        changed = False
+        for p in squad:
+            prof = p['native_profile']
+            cur = int(prof.get(field, 0))
+            nxt = (cur | mask) if c['enable'] else (cur & ~mask)
+            if nxt != cur:
+                prof[field] = nxt
+                changed = True
+        if not changed:
+            raise ValueError(f'No player in squad changed for trait {c["name"]}')
+    elif c['kind'] == 'profile':
+        changed = False
+        for p in squad:
+            prof = p['native_profile']
+            if prof.get(c['field']) != c['value']: prof[c['field']] = c['value']; changed = True
+        if not changed: raise ValueError(f'every player already has {c["field"]}={c["value"]}')
     elif c['kind'] == 'tactic':
         s = A.import_fmf({'side': side, 'scenario': s, 'file_base64': base64.b64encode(Path(c['path']).read_bytes()).decode()})['scenario']
     return A.encode_scenario(A.validate_scenario(s))

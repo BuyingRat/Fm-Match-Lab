@@ -12,7 +12,7 @@ Layout (offsets in the record; the mode byte sits just past it, at +0x21):
   +0x19..+0x1b three signed bytes combined into one team-level score S (weights depend on the mode)
   +0x1c..+0x20 raw ability, role suitability, overall, buy-in, next-match information (builder arguments; not read by
                the accessor)
-  +0x21        mode (1..3 in practice; 27.0 range-checks mode-1 < 3)
+  +0x21        mode: 4 in every record seen (the fallback weights); 1-3 have their own (27.0 range-checks mode-1 < 3)
 """
 import json, sys
 

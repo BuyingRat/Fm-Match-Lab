@@ -1,7 +1,8 @@
 # Guide for AI agents working with FM27 Match Lab
 
 This repository runs Football Manager 27's own match engine from the user's Steam install, outside the game, to
-replay and test matches. Read this before running anything. `CLAUDE.md` points here.
+replay and test matches. Read this before running anything. `CLAUDE.md` is a symbolic link to this file, so every
+agent (Claude Code, Gemini, others) reads the same instructions.
 
 ## Rules (not negotiable)
 
@@ -25,14 +26,18 @@ replay and test matches. Read this before running anything. `CLAUDE.md` points h
 - Ask the user before installing anything large, writing outside the repository and its private folders, or
   publishing anything.
 
-## Set-up and the app
+## Set-up, build, run and test
 
 ```sh
 python3.12 -m venv .venv && .venv/bin/pip install UnityPy
 .venv/bin/python scripts/setup.py          # host, tactic catalogue, sample match; again after a game update
+.venv/bin/python scripts/build_native_mac.py   # rebuild only the engine host (setup.py calls it)
 .venv/bin/python scripts/run.py            # the app at http://127.0.0.1:18765
 .venv/bin/python -m unittest discover tests
 ```
+
+`requirements.txt` lists the optional packages (numpy for `optimise.py`, fmsave for squads from saves, capstone for
+`port/map/`). The tests must pass before every commit; `tests/test_boundary.py` is the publishing boundary.
 
 The app covers single comparisons: open a saved match, change something, run a few hundred seeds, compare with the
 saved tactic. For anything with many conditions, use a study.
@@ -82,6 +87,20 @@ How to design and read one:
 Write findings up in plain language: what changed, by how much (per game and per season), how sure, and the
 mechanism (more chances, better chances, fewer chances conceded). `docs/studies/` has six worked examples.
 
+## Coding conventions
+
+- macOS only (Apple silicon, the engine host runs under Rosetta or natively as arm64). No Windows code paths; the
+  upstream Windows project is a reference, not a target.
+- Python 3.12, standard library first (the app needs nothing else). Each script starts with a docstring that says
+  what it does and how to run it. Compact style, as in the existing files; no new frameworks.
+- The host is C++17 in `port/mac_host/`, built with clang++ and signed ad hoc by `scripts/build_native_mac.py`.
+- All text is English: UI labels, server messages, docs, comments.
+- Generated outputs go to the git-ignored `runs/`, `private/`, `build/` or `data/`, never next to tracked files. Pass
+  absolute paths to the host: the engine changes the working directory.
+- Docs and study pages are plain language: what changed, by how much, how sure, the mechanism.
+- Commit messages: one line saying what changed and the result. Commit locally; never push (see below).
+
+
 ## Where things are
 
 | Path | What |
@@ -91,8 +110,8 @@ mechanism (more chances, better chances, fewer chances conceded). `docs/studies/
 | `src/league.py`, `src/league_web.py`, `src/tactics_ui/league.js` | leagues of tactics: the shared engine (also `study.py league`), the app's League page |
 | `scripts/season.py`, `src/club_season.py` | a club's real league season from a save, once per tactic, against real squads and AI-picked, AI-managed opponents (Study 19) |
 | `port/validation/random_study.py` | attribute values by position from random configurations (every attribute of every starter ±5 in every match) |
-| `port/validation/study24_areas.py`, `study24b_random_areas.py` | Study 24: familiarity areas one at a time, then at random levels (24b) |
-| `port/validation/pooled_attributes.py`, `random_curvature.py` | Study 13b's model against every earlier condition; curvature and within-player combinations from the random matches |
+| `port/validation/study24_areas.py`, `study24b_random_areas.py` | Study 24: familiarity areas one at a time, then at random levels (24b), and the attributes behind each area |
+| `port/validation/pooled_attributes.py`, `random_curvature.py` | Study 13b's model against every earlier condition, substitutes' minutes, pooled estimates (`pool`); curvature and within-player combinations from the random matches |
 | `scripts/backup_results.py` | compressed, versioned copy of every study's results (default ~/Dropbox); run after each study, never deletes |
 | `src/reference_squads.json`, `scripts/reference_squads.py` | synthetic reference squads and their generator (calibration stays in `private/reference/`) |
 | `port/mac_host/` | the engine host (C++), built by `scripts/build_native_mac.py` |

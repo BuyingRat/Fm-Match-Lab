@@ -11,7 +11,14 @@
 #ifndef FM27_MAC_BUILD
 #define FM27_MAC_BUILD 2493426
 #endif
-#if FM27_MAC_BUILD == 2493426
+#if defined(__aarch64__)
+// arm64 slice (native, no Rosetta): addresses from port/map/match_arch.py; struct offsets as on x86_64.
+#if FM27_MAC_BUILD == 2503222
+#include "fm27_mac_arm64_2503222.h"
+#else
+#error "arm64 host: only build 2503222 is mapped"
+#endif
+#elif FM27_MAC_BUILD == 2493426
 #define FM27_RVA(name, value) value
 #define FM27_MAC_UUID 0x09,0x81,0xAB,0x31,0xAC,0x3B,0x3D,0x93,0x94,0x4F,0x47,0xFE,0x4B,0x59,0xCD,0x9E
 #define FM27_MAC_ENGINE_VERSION 0x1b000000u   // match constructor (0x49868a0) writes it at +0xa2c
@@ -20,6 +27,8 @@
 #include "fm27_mac_x86_64_2494769.h"
 #elif FM27_MAC_BUILD == 2503222
 #include "fm27_mac_x86_64_2503222.h"
+#elif FM27_MAC_BUILD == 2505117
+#include "fm27_mac_x86_64_2505117.h"
 #else
 #error "unknown FM27_MAC_BUILD"
 #endif
@@ -27,6 +36,20 @@
 namespace fm27mac {
 static const uint8_t kUuid[16] = {FM27_MAC_UUID};
 constexpr uint32_t kFm27EngineVersion = FM27_MAC_ENGINE_VERSION;   // the word the build's own match constructor writes
+
+// ---- record layouts that moved between builds ----
+// Offsets below are written as on 27.0.1 and carried to the running build by these functions. 27.1.0+2505117 grew the
+// player record (+0x598 from the traits mask on, +0x590 from 0x1150 on) and the manager record (+8 from about 0x8d0);
+// the set-piece routine container itself is unchanged (runtime: all 10 type vectors valid at manager+0x8f0+0xd00)
+// (port/map/offset_carry.py votes, e.g. 0xcd8 -> 0x1270
+// 158/161, 0x1e26 -> 0x23b6 379/379, 0x3521 -> 0x3529 11/11; $FM27_WORK_DIR/mac/27.1.0-2505117/offset_carry.json).
+#if !defined(__aarch64__) && FM27_MAC_BUILD == 2505117
+constexpr uintptr_t P_(uintptr_t o) { return o >= 0x1150 ? o + 0x590 : o >= 0xb80 ? o + 0x598 : o; }
+constexpr uintptr_t MG_(uintptr_t o) { return o >= 0x8d0 ? o + 8 : o; }
+#else
+constexpr uintptr_t P_(uintptr_t o) { return o; }
+constexpr uintptr_t MG_(uintptr_t o) { return o; }
+#endif
 
 // ---- functions (Windows RVA in comments) ----
 enum : uintptr_t {
@@ -79,10 +102,19 @@ enum : uintptr_t {
 // ---- struct sizes / offsets ----
 enum : uintptr_t {
     interface_size         = 0x60,
+#if defined(__aarch64__)
+    // arm64: the resources object is 0x18 shorter from +0x40 on (twin start-up functions 0x437fae0/0x4380234/0x437e954
+    // against x86_64 0x4874880/0x4874f30/0x4873800, and the live object). Other structs checked so far are unchanged.
+    resources_size         = 0x1c0,      // allocation only (arm64 needs 0x1a8)
+    res_roots_begin        = 0x100,
+    res_roots_end          = 0x108,
+    res_filesystem         = 0x148,
+#else
     resources_size         = 0x1c0,
     res_roots_begin        = 0x118,      // Windows 0x78
     res_roots_end          = 0x120,      // Windows 0x80
     res_filesystem         = 0x160,      // Windows 0xc0
+#endif
     match_size             = 0x15590,    // Windows 0x155b0
     m_seed                 = 0x18,       // Windows 0x20; same PCG seeding expression in both deserializers
     m_benchmark_flag       = 0x15588,    // Windows 0x155a0
@@ -94,8 +126,8 @@ enum : uintptr_t {
     m_engine_version       = 0xa2c,      // Windows 0xa3a (decompiled pair 0xe0b00/0x4a23470; votes 172/180)
     m_deadball             = 0x12d60,    // Windows 0x12d70 (decompiled pair 0xddc70/0x4d09e20; votes 19/22)
     m_restart_team         = 0x12d40,    // Windows 0x12d50 (votes 26/28; runtime: one of the two teams)
-    mg_active_manager      = 0x298,      // same (manager-layout object holding the selected set-piece variants)
-    av_attacking           = 0x334a,     // Windows 0x331a (+0x30 for the whole block in the decompiled pair)    // Windows 0x15500
+    mg_active_manager      = MG_(0x298),      // same (manager-layout object holding the selected set-piece variants)
+    av_attacking           = MG_(0x334a),     // Windows 0x331a (+0x30 for the whole block in the decompiled pair)    // Windows 0x15500
     m_gate_a               = 0x15560,    // Windows 0x15570
     m_gate_b               = 0x1555e,    // Windows 0x1556e
     m_gate_c               = 0x15565,    // Windows 0x15575
@@ -117,37 +149,37 @@ enum : uintptr_t {
     p_field2               = 0x6a,       // 0x72 (fields 2..8 consecutive)
     p_age                  = 0x71,       // 0x79
     p_field19              = 0x68,       // 0x70
-    p_attributes           = 0x478,      // 0x480   D(25/25, 28/28 players)
-    p_cell_ip              = 0xcd8,      // 0xce0   V(209/224)
-    p_cell_oop             = 0xdb0,      // 0xdb8   V(218/237)
-    p_slot                 = 0x1e27,
-    p_on_pitch             = 0x1e26,     // 1 while on the pitch (found by snapshot search, 27.0.1; runtime: 11 per side)
-    p_lineup_slot          = 0x1e51,     // lineup slot while on the pitch, 255 off
-    p_ca                   = 0xc90,      // Windows 0xc98 (u16; builder argument 10 in both decompiled callers)
-    p_exec_record          = 0xcb2,      // Windows 0xcba: 33-byte tactical-effectiveness record (builder 0x4dd5f80)
+    p_attributes           = P_(0x478),      // 0x480   D(25/25, 28/28 players)
+    p_cell_ip              = P_(0xcd8),      // 0xce0   V(209/224)
+    p_cell_oop             = P_(0xdb0),      // 0xdb8   V(218/237)
+    p_slot                 = P_(0x1e27),
+    p_on_pitch             = P_(0x1e26),     // 1 while on the pitch (found by snapshot search, 27.0.1; runtime: 11 per side)
+    p_lineup_slot          = P_(0x1e51),     // lineup slot while on the pitch, 255 off
+    p_ca                   = P_(0xc90),      // Windows 0xc98 (u16; builder argument 10 in both decompiled callers)
+    p_exec_record          = P_(0xcb2),      // Windows 0xcba: 33-byte tactical-effectiveness record (builder 0x4dd5f80)
     exec_record_size       = 33,
     exec_raw_ability       = 0x1c,       // record offsets, same on both (builder writes +0x1c..+0x20)
     exec_role_suitability  = 0x1d,
     exec_overall           = 0x1e,
     exec_buy_in            = 0x1f,
     exec_next_match        = 0x20,     // 0x1e27  C(effective-OI caller pair)
-    mg_routines            = 0x8e8,      // 0x8f0   C(2 caller pairs) D
-    mg_selection           = 0x6e0,      // 0x6e8   selection object: lists, captain (+0x200), routines (+0x208)
-    mg_captain_slot        = 0x3521,     // 0x34e5  captain's XI slot after preparation (V 16/16; runtime-checked)
-    mg_captain_key         = 0x8e0,      // 0x8e8   D
-    mg_throw_flags         = 0x16d8,     // 0x16f0  D(block -0x18)
-    mg_oi                  = 0x16e0,     // 0x16f8  D C
-    mg_oi_pos_count        = 0x1730,     // 0x1748  D
-    mg_oi_pos_rows         = 0x1734,     // 0x174c  D
-    mg_cells_live          = 0x1808,     // 0x1818  D(cells at -0x10)
-    mg_creator_live        = 0x18e0,     // 0x18f8  D
-    mg_version             = 0x18f0,     // 0x1908  D(reads 0x1a080000)
-    mg_map_live            = 0x1fb4,     // 0x1fb4  D (plan+0x79c)
-    mg_creator_mid         = 0x20a0,     // 0x20a0  D
-    mg_cells_canon         = 0x2788,     // 0x2768  D(cells at +0x20)
-    mg_creator_input       = 0x2860,     // 0x2848  D
-    mg_map_canon           = 0x2f34,     // 0x2f04  P+D
-    mg_input_flags         = 0x30d0,     // 0x30a0  V(55/57) D(0x24000 vs 0x24001: bit 0 set by edit kind 10)
+    mg_routines            = MG_(0x8e8),      // 0x8f0   C(2 caller pairs) D
+    mg_selection           = MG_(0x6e0),      // 0x6e8   selection object: lists, captain (+0x200), routines (+0x208)
+    mg_captain_slot        = MG_(0x3521),     // 0x34e5  captain's XI slot after preparation (V 16/16; runtime-checked)
+    mg_captain_key         = MG_(0x8e0),      // 0x8e8   D
+    mg_throw_flags         = MG_(0x16d8),     // 0x16f0  D(block -0x18)
+    mg_oi                  = MG_(0x16e0),     // 0x16f8  D C
+    mg_oi_pos_count        = MG_(0x1730),     // 0x1748  D
+    mg_oi_pos_rows         = MG_(0x1734),     // 0x174c  D
+    mg_cells_live          = MG_(0x1808),     // 0x1818  D(cells at -0x10)
+    mg_creator_live        = MG_(0x18e0),     // 0x18f8  D
+    mg_version             = MG_(0x18f0),     // 0x1908  D(reads 0x1a080000)
+    mg_map_live            = MG_(0x1fb4),     // 0x1fb4  D (plan+0x79c)
+    mg_creator_mid         = MG_(0x20a0),     // 0x20a0  D
+    mg_cells_canon         = MG_(0x2788),     // 0x2768  D(cells at +0x20)
+    mg_creator_input       = MG_(0x2860),     // 0x2848  D
+    mg_map_canon           = MG_(0x2f34),     // 0x2f04  P+D
+    mg_input_flags         = MG_(0x30d0),     // 0x30a0  V(55/57) D(0x24000 vs 0x24001: bit 0 set by edit kind 10)
     cell_ip_offset         = 0x118,      // same
     cell_oop_offset        = 0x438,      // same
     cell_stride            = 0x48,       // same
@@ -177,7 +209,7 @@ enum : uintptr_t {
 
 // ---- FMF tactic import (port/mac_host/fm27_mac_fmf.h) ----
 enum : uintptr_t {
-    mg_plan                = 0x1800,     // Windows manager+0x1818: parser base. Mac parser fields: bits +0xe0 (=mg_creator_live),
+    mg_plan                = MG_(0x1800),     // Windows manager+0x1818: parser base. Mac parser fields: bits +0xe0 (=mg_creator_live),
                                          //  version +0xf0 (=mg_version), cells +0x120 (=mg_cells_live+0x118), map +0x7b4 (=mg_map_live)
     plan_title             = 0x790,      // Windows plan+0x778 (first string read/written by the TAC parser/writer)
     fmf_folder_dirs        = 0x30,       // runtime dump: same as Windows

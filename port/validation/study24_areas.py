@@ -1,11 +1,12 @@
 """Study 24's analysis: which tactical familiarity area is worth training, per style, and whether the styles agree.
 
-  python port/validation/study24_areas.py runs/study24    # writes OUT/areas.md
+  python port/validation/study24_areas.py runs/study24 [--random runs/random/gegenpress]    # writes OUT/areas.md
 
 Per style and area: the paired effect of the area at 80 and at 20 (against all areas at 50) on xPts, xG for, xG
 against and xG difference; the swing (80 minus 20, paired on the same matches); the areas ranked by the swing; a test
 that the eight areas are equal within a style (chi-square, 7 df) and that the two styles agree (chi-square on the
-eight differences, 8 df, and the rank correlation).
+eight differences, 8 df, and the rank correlation). With --random (a random-configuration study, Study 13b), each
+area's effect is related to the value of the two attributes it strengthens.
 """
 import argparse, json, math, sys
 from pathlib import Path
@@ -17,6 +18,11 @@ from random_study import chi2_sf
 
 AREAS = ['In-possession shape', 'Passing style', 'Build-up', 'Chance creation', 'Out-of-possession shape',
          'Line of engagement', 'Pressing intensity', 'Pressing trap']
+BOOSTED = {   # the two attributes each area strengthens during play (Study 24 page)
+    'In-possession shape': ['First Touch', 'team cohesion'], 'Passing style': ['Decisions', 'Composure'],
+    'Build-up': ['Technique', 'Vision'], 'Chance creation': ['Anticipation', 'Off The Ball'],
+    'Out-of-possession shape': ['Concentration', 'Marking'], 'Line of engagement': ['Work Rate', 'Aggression'],
+    'Pressing intensity': ['Anticipation', 'Tackling'], 'Pressing trap': ['Decisions', 'Positioning']}
 MEASURES = ('xPts', 'xGF', 'xGA', 'xGD', 'pts')
 
 
@@ -34,7 +40,7 @@ def spearman(x, y):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('out')
+    p.add_argument('out'); p.add_argument('--random', help='a random-configuration study folder (Study 13b) for the attribute check')
     a = p.parse_args(); out = Path(a.out); meta = json.loads((out / 'meta.json').read_text()); data = ns.load(out)
     styles = [g['name'] for g in meta['groups']]
     f = lambda e: f'{e[0]:+.3f} ({e[1]:+.1f})'
@@ -69,6 +75,31 @@ def main():
                 L.append(f"- {m} {label}: styles differ chi-square {q:.1f} on 8 df (p {chi2_sf(q, 8):.3f}); rank correlation {rho:+.2f}; "
                          f"largest difference {AREAS[max(range(8), key=lambda i: abs(z[i]))]} (z {max(z, key=abs):+.1f})")
         L.append('')
+    if a.random:
+        r = json.loads((Path(a.random) / 'analysis.json').read_text())['measures']['xPts']
+        team = dict(zip(r['team_fields'], r['team_b']))
+        squads = json.loads((ROOT / 'src/reference_squads.json').read_text())['tiers']['pl-middle']['players']
+        key = lambda name: name.lower().replace(' ', '')
+        level = {fld: sum(pl['raw'].get(key(fld), 0) for pl in squads if pl['group'] != 'GK') / 5 / sum(pl['group'] != 'GK' for pl in squads) for fld in team}
+        # the boost's size between the area at 80 and at 20, relative to the baseline: the engine's own scale from the
+        # git-ignored private/engine_boost.json ({"swing": ...}) if present, else 1 (correlations don't depend on it)
+        df = ROOT / 'private/engine_boost.json'
+        scale = json.loads(df.read_text())['swing'] if df.exists() else 1.0
+        L += ['## The attributes behind each area', '',
+              'Each area strengthens two attributes during play. Predicted: the value of the two attributes (Study 13b, xPts per '
+              'game for +1 level for all ten outfield players) times their squad level times the change in the boost between the '
+              'area at 80 and at 20' + ('' if df.exists() else ' (relative scale)') + '; team cohesion has no attribute and counts '
+              'as zero. It assumes the boost is worth what the attribute is worth everywhere, so it is an upper bound.', '',
+              '| Area | Attributes | Predicted swing, xPts | ' + ' | '.join(f'{s} swing' for s in styles) + ' |', '|---|---|---|' + '---|' * len(styles)]
+        pred = {}
+        for ar in AREAS:
+            pred[ar] = sum(team.get(d, 0) * 10 * level.get(d, 0) * scale for d in BOOSTED[ar])
+            L.append(f"| {ar} | {', '.join(BOOSTED[ar])} | {pred[ar]:+.3f} | " + ' | '.join(f"{swing[(s, ar)][2]['xPts'][0]:+.3f}" for s in styles) + ' |')
+        for s in styles:
+            x = [pred[ar] for ar in AREAS]; y = [swing[(s, ar)][2]['xPts'][0] for ar in AREAS]
+            mx, my = sum(x) / 8, sum(y) / 8
+            cor = sum((p - mx) * (q - my) for p, q in zip(x, y)) / math.sqrt(sum((p - mx) ** 2 for p in x) * sum((q - my) ** 2 for q in y))
+            L.append(f'\n{s}: correlation of predicted and measured swing {cor:+.2f}, rank correlation {spearman(x, y):+.2f}.')
     text = '\n'.join(L) + '\n'; (out / 'areas.md').write_text(text); print(text)
 
 

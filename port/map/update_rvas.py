@@ -7,7 +7,9 @@ Data (g_*, vt_*, tlv_*): every RIP-relative reference to the old address is foun
 as above, and the instruction at the same index in the new function gives the new address. Sites vote.
 Output: JSON {name: {old, new, method, votes}} on stdout. Nothing derived from game bytes is written to the repo.
 
-  python port/map/update_rvas.py OLD_SLICE NEW_SLICE > $FM27_WORK_DIR/mac/<new>/rva_update.json
+  python port/map/update_rvas.py OLD_SLICE NEW_SLICE [OLD_BUILD_HEADER] > $FM27_WORK_DIR/mac/<new>/rva_update.json
+
+OLD_BUILD_HEADER (port/mac_host/fm27_mac_x86_64_<build>.h) gives the old build's addresses when it isn't 27.0.0.
 """
 import bisect, json, re, struct, sys
 from pathlib import Path
@@ -163,6 +165,9 @@ def main():
     names = {}
     for h in HEADERS:
         for name, value in re.findall(r'^\s*(\w+)\s*=\s*(?:FM27_RVA\(\w+,\s*)?(0x[0-9a-fA-F]+)\)?\s*,', h.read_text(), re.M):
+            if name.startswith(CODE_PREFIX + DATA_PREFIX): names[name] = int(value, 16)
+    if len(sys.argv) > 3:   # the old build's own header (fm27_mac_x86_64_<build>.h) overrides the base addresses
+        for name, value in re.findall(r'^#define FM27_RVA_(\w+) (0x[0-9a-fA-F]+)', Path(sys.argv[3]).read_text(), re.M):
             if name.startswith(CODE_PREFIX + DATA_PREFIX): names[name] = int(value, 16)
     out, func_map, cache = {'_uuid': {'old': old.uuid, 'new': new.uuid}}, {}, {}
     for name, addr in sorted(names.items(), key=lambda x: x[1]):

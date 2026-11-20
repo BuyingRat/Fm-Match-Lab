@@ -1,5 +1,6 @@
 """Publishing boundary: the repository must hold no game files, nothing derived from them beyond addresses, digests
 and metadata, and no personal paths. Run: .venv/bin/python -m unittest discover tests"""
+import os
 import re
 import subprocess
 import unittest
@@ -93,6 +94,29 @@ class BoundaryTests(unittest.TestCase):
                 given, surname = p['name'].split(' ', 1)
                 self.assertIn(given, first, p['name'])
                 self.assertTrue(any(surname.startswith(a) and surname[len(a):] in parts[1] for a in parts[0]), p['name'])
+
+    def test_engine_research_stays_private(self):
+        """engine_research/ (engine formulas, addresses, tools, session logs) is tracked here but never published: the
+        snapshot skips it, and in the published copy (FM27_PUBLISH_CHECK=1) it and every link to it must be absent."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('public_snapshot', ROOT / 'scripts/public_snapshot.py')
+        snap = importlib.util.module_from_spec(spec); spec.loader.exec_module(snap)
+        self.assertIn('engine_research/', snap.PRIVATE_PREFIXES)
+        self.assertFalse(snap.public('engine_research/docs/ENGINE.md'))
+        self.assertFalse(snap.public('HANDOFF.md'))   # session handoff notes: private too
+        allowed = {Path('port/mac_host/fm27_mac_host.cpp'), Path('scripts/public_snapshot.py'), Path('tests/test_boundary.py')}
+        publish = os.environ.get('FM27_PUBLISH_CHECK') == '1'
+        if publish:
+            for prefix in snap.PRIVATE_PREFIXES: self.assertFalse((ROOT / prefix).exists(), f'{prefix} must not be published')
+        bad = []
+        for p in tracked():
+            if not snap.public(p.as_posix()) or p in allowed or (ROOT / p).is_symlink(): continue
+            try: text = (ROOT / p).read_text(encoding='utf8')
+            except (UnicodeDecodeError, FileNotFoundError): continue
+            if publish and '<!-- private:start -->' in text: bad.append(f'{p}: private block not stripped')
+            body = re.sub(r'<!-- private:start -->.*?<!-- private:end -->', '', text, flags=re.S)
+            if 'engine_research' in body: bad.append(f'{p}: mentions engine_research outside a private block')
+        self.assertEqual(bad, [])
 
     def test_private_folders_ignored(self):
         ignore = (ROOT / '.gitignore').read_text()

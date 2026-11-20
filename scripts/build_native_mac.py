@@ -1,4 +1,4 @@
-"""Build the macOS native host (x86_64 slice, runs under Rosetta) into private/engine/fm27_native/.
+"""Build the macOS native host (arm64 native on Apple silicon; x86_64 under Rosetta with --arch x86_64) into private/engine/fm27_native/.
 
 Also writes private/engine/fm27_native/engine_compat_profile.json for the macOS engine: the SHA-256 of the user's
 own game_plugin and the LC_UUID the host requires. Nothing derived from game files is committed.
@@ -6,6 +6,7 @@ own game_plugin and the LC_UUID the host requires. Nothing derived from game fil
 import argparse
 import hashlib
 import json
+import re
 import tempfile
 from pathlib import Path
 import shutil
@@ -19,7 +20,9 @@ import desktop_platform  # noqa: E402
 # x86_64 LC_UUID -> (FM27_MAC_BUILD, game version, engine version word written by the build's match constructor)
 BUILDS = {'0981AB31-AC3B-3D93-944F-47FE4B59CD9E': (2493426, '27.0.0+2493426', 0x1b000000),
           '94CDDC80-8474-327A-85E0-E4FF95DC6893': (2494769, '27.0.1+2494769', 0x1b000100),
-          'DD0EE157-4C9C-31A7-81DD-0D1122E62FC7': (2503222, '27.0.1+2503222', 0x1b000100)}
+          'DD0EE157-4C9C-31A7-81DD-0D1122E62FC7': (2503222, '27.0.1+2503222', 0x1b000100),
+          '864625AF-9AA9-3254-8EC5-47E9D486132A': (2505117, '27.1.0+2505117', 0x1b010000)}
+ARM64_BUILDS = {2503222}
 
 
 
@@ -63,6 +66,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--game-root', type=Path, help='FM27 Steam folder, fm.app or game_plugin.bundle/Contents/Resources')
     parser.add_argument('--output', type=Path, help='host path (default private/engine/fm27_native/<host>); the profile is written next to it')
+    parser.add_argument('--arch', choices=('arm64', 'x86_64'), help='slice to build against (default: arm64 when mapped for the installed build, else x86_64)')
     args = parser.parse_args()
     if not desktop_platform.IS_MAC:
         raise SystemExit('macOS only.')
@@ -75,19 +79,27 @@ def main():
     if not found:
         raise SystemExit(f'Unsupported FM27 build (no known x86_64 LC_UUID; see docs/MACOS.md, "Updating after an FM27 patch"):\n{uuids}')
     uuid = found[0]; build, game_version, engine_version = BUILDS[uuid]
+    arch = args.arch or ('arm64' if build in ARM64_BUILDS else 'x86_64')
+    if arch == 'arm64' and build not in ARM64_BUILDS:
+        raise SystemExit(f'arm64 slice is not mapped for build {build}; pass --arch x86_64.')
+    m_arm = re.search(r'UUID: ([0-9A-F-]+) \(arm64\)', uuids)
+    uuid_arm64 = m_arm.group(1) if m_arm else None
     host = (args.output.resolve() if args.output else ROOT / 'private/engine/fm27_native' / desktop_platform.HOST_NAME)
     native = host.parent
     native.mkdir(parents=True, exist_ok=True)
     source = ROOT / 'port/mac_host/fm27_mac_host.cpp'
-    subprocess.run(['clang++', '-std=c++17', '-O2', '-g', '-arch', 'x86_64', '-Wall', '-Wno-unused-function',
-                    '-Wno-deprecated-declarations', f'-DFM27_MAC_BUILD={build}', '-o', str(host), str(source)], check=True)
-    subprocess.run(['codesign', '--force', '--sign', '-', str(host)], check=True)
+    tmp = host.with_suffix('.new')
+    subprocess.run(['clang++', '-std=c++17', '-O2', '-g', '-arch', arch, '-Wall', '-Wno-unused-function',
+                    '-Wno-deprecated-declarations', f'-DFM27_MAC_BUILD={build}', '-o', str(tmp), str(source)], check=True)
+    subprocess.run(['codesign', '--force', '--sign', '-', str(tmp)], check=True)
+    tmp.replace(host)
     digest = hashlib.sha256(plugin.read_bytes()).hexdigest()
-    profile = {'platform': 'macos-x86_64', 'reference_sha256': digest, 'lc_uuid_x86_64': uuid,
+    profile = {'platform': f'macos-{arch}', 'reference_sha256': digest, 'lc_uuid_x86_64': uuid,
+               **({'lc_uuid_arm64': uuid_arm64} if uuid_arm64 else {}),
                'game_version': game_version, 'build': build, 'engine_version': engine_version,
                'note': 'Generated locally from the user\'s own install; not for publication.'}
     (native / 'engine_compat_profile.json').write_text(json.dumps(profile, indent=1) + '\n', encoding='utf8')
-    print(f'Built {host} (x86_64, FM27 {game_version}, engine word 0x{engine_version:08x}) for {game}')
+    print(f'Built {host} ({arch}, FM27 {game_version}, engine word 0x{engine_version:08x}) for {game}')
     print(f'game_plugin sha256 {digest}')
     policy_table(host, native, engine_version)
 

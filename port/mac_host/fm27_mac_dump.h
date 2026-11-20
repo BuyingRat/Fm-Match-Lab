@@ -19,11 +19,11 @@ static bool profile_read(unsigned char* player, unsigned field, unsigned char* t
     unsigned offset = 0, size = 0;
     if (field == 1) { offset = p_age; size = 1; }
     else if (field >= 2 && field <= 8) { offset = p_field2 + field - 2; size = 1; }
-    else if (field == 9 || field == 10) { offset = 0xbb0 + 4 * (field - 9); size = 4; }
-    else if (field >= 11 && field <= 18) { static const unsigned o[] = {0xc90, 0xc84, 0xc8e, 0xc70, 0xc82, 0xc88, 0xc72, 0xc7c}; offset = o[field - 11]; size = 2; }
+    else if (field == 9 || field == 10) { offset = P_(0xbb0) + 4 * (field - 9); size = 4; }
+    else if (field >= 11 && field <= 18) { static const unsigned o[] = {P_(0xc90), P_(0xc84), P_(0xc8e), P_(0xc70), P_(0xc82), P_(0xc88), P_(0xc72), P_(0xc7c)}; offset = o[field - 11]; size = 2; }
     else if (field == 19) { offset = p_field19; size = 1; }
-    else if (field == 20 || field == 21) { offset = field == 20 ? 0xca0 : 0xc9a; size = 1; }
-    else if (field == 22) { offset = 0xc9b; size = 1; }
+    else if (field == 20 || field == 21) { offset = field == 20 ? P_(0xca0) : P_(0xc9a); size = 1; }
+    else if (field == 22) { offset = P_(0xc9b); size = 1; }
     else return false;
     uint32_t v = 0; memcpy(&v, player + offset, size);
     *out = field == 20 ? (v + 50 + 5 * (int)(signed char)team[t_adjustment]) / 2.0 : v;   // stored input -> editor value
@@ -55,7 +55,8 @@ static void dump_match_input(unsigned char* match) {
         put(0x16f0, manager + mg_throw_flags, 3);
         put(0x16f8, manager + mg_oi, 26 * 3);
         put(0x1748, manager + mg_oi_pos_count, 4);
-        unsigned positional = manager[mg_oi_pos_count]; if (positional > 64) finish(106);
+        unsigned positional = manager[mg_oi_pos_count];
+        if (positional > 64) { LOG("{\"event\":\"layout_reject\",\"field\":\"mg_oi_pos_count\",\"value\":%u}", positional); finish(106); }
         put(0x174c, manager + mg_oi_pos_rows, positional * 8);
         put(0x1fb4, manager + mg_map_live, 11);
         put(0x2848, manager + mg_creator_live, 0x28);
@@ -83,7 +84,7 @@ static void dump_match_input(unsigned char* match) {
         for (unsigned group = 0; group < 10; group++) {
             auto vec = manager + mg_routines + 0xd00 + 24 * group;
             auto begin = *(unsigned char***)vec, end = *(unsigned char***)(vec + 8);
-            if (end - begin > 8) finish(106);
+            if (end - begin > 8 || end < begin) { LOG("{\"event\":\"layout_reject\",\"field\":\"routine_vector\",\"group\":%u,\"length\":%lld}", group, (long long)(end - begin)); finish(106); }
             fprintf(f, "%s[", group ? "," : "");
             for (auto ptr = begin; ptr < end; ptr++) {
                 auto obj = *ptr; auto vt = *(void***)obj;
@@ -121,7 +122,7 @@ static void dump_match_input(unsigned char* match) {
             fputs(",\"attributes\":[", f);
             for (unsigned a = 0; a < 69; a++) fprintf(f, "%s%u", a ? "," : "", player[p_attributes + a]);
             fputs("],\"profile\":[", f);
-            for (unsigned field = 0; field <= 22; field++) { double v = 0; profile_read(player, field, team, &v); fprintf(f, "%s%.6g", field ? "," : "", v); }
+            for (unsigned field = 0; field <= 22; field++) { double v = 0; profile_read(player, field, team, &v); fprintf(f, "%s%.10g", field ? "," : "", v); }   // 10 digits: the 32-bit trait masks exactly
             fputs("]}", f);
         }
         fputs("]}", f);

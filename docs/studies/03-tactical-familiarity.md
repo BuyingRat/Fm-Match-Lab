@@ -50,10 +50,12 @@ The earlier experiments (`port/REPORT.md`) already showed which parts matter, wi
 
 - **Read during play:** the area values, tactical ability and complexity. Raising all of them together to 90 was
   worth +0.23 points per game and +0.37 xG difference on these matches. Setting them to 30 changed nothing.
-- **Ignored by the match:** Player Ability (capability, role suitability) and the overall value. Setting them to 10,
-  50 or 90 gives exactly the natural match.
-- **No measurable effect alone:** Buy-In and Next Match Info, held at 30 or 90 (|t| < 1.7). They may feed the panel's
-  headline number, or matter only through other bytes when the game rebuilds the record day by day.
+- **Ignored by the match (on FM27 27.0):** Player Ability (capability, role suitability) and the overall value.
+  Setting them to 10, 50 or 90 gave exactly the natural match. *Update, 15 November (27.0.1):* the current engine does
+  read the overall value during play (holding it changes every match), but at 10 or 90 it moves results by about
+  0.1 xG difference at most (|t| < 2 on 300 pairs). Capability and role suitability reach play only through it.
+- **No measurable effect alone:** Buy-In and Next Match Info, held at 30 or 90 (|t| < 1.7), and again at 10 or 90 on
+  27.0.1 (|t| < 1.5). They feed the panel's headline number (the overall value) and some small parts of play.
 
 So "familiarity" in FM27 is the **Tactical Understanding** half of the panel: for each of the eight areas, training
 plus match exposure, plus the player's tactical ability, minus how complex the tactic is for his role.

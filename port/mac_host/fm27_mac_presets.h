@@ -100,7 +100,7 @@ static void export_coach_presets() {
         if (!found || found->value != simatch_folder) finish(248);
         // The game's own match-folder accessor (inlined lookup + subfolder open) must now succeed.
         void* match_dir = nullptr;
-        ((void* (*)(void*))at(fn_match_folder_open))(&match_dir);
+        call_sret(at(fn_match_folder_open), &match_dir);
         LOG("{\"event\":\"match_folder_bound\",\"source\":\"installation_FMF\",\"engine_accessor\":%s}", match_dir ? "true" : "false");
         if (!match_dir) finish(248);
     }
@@ -144,7 +144,7 @@ static void export_coach_presets() {
 
     unsigned formations = 0;
     for (unsigned code = 0; code <= 64; code++) {
-        if (!((unsigned char (*)(unsigned))at(fn_formation_valid))(code)) continue;
+        if (!((unsigned char (*)(unsigned, unsigned))at(fn_formation_valid))(code, 4)) continue;
         auto plan = (unsigned char*)::operator new(plan_size);
         memset(plan, 0, plan_size);
         ((void* (*)(void*, void*, unsigned char))at(fn_plan_ctor))(plan, at(g_plan_defaults), 1);

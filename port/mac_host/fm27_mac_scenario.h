@@ -49,14 +49,14 @@ static bool profile_value(unsigned char* player, unsigned field, uint32_t value,
     // Windows offsets minus 8: the match-player block is uniformly -8 on macOS (data + votes, see REPORT).
     if (field == 1) { offset = p_age; size = 1; min = 14; max = 60; }
     else if (field >= 2 && field <= 8) { offset = p_field2 + field - 2; size = 1; min = 1; max = 20; }
-    else if (field == 9 || field == 10) { offset = 0xbb0 + 4 * (field - 9); size = 4; }
+    else if (field == 9 || field == 10) { offset = P_(0xbb0) + 4 * (field - 9); size = 4; }
     else if (field >= 11 && field <= 18) {
-        static const unsigned offsets[] = {0xc90, 0xc84, 0xc8e, 0xc70, 0xc82, 0xc88, 0xc72, 0xc7c};
+        static const unsigned offsets[] = {P_(0xc90), P_(0xc84), P_(0xc8e), P_(0xc70), P_(0xc82), P_(0xc88), P_(0xc72), P_(0xc7c)};
         offset = offsets[field - 11]; size = 2; max = field == 11 ? 200 : (field == 18 ? 65535 : 10000);
     }
     else if (field == 19) { offset = p_field19; size = 1; min = 40; max = 140; }
-    else if (field == 20 || field == 21) { offset = field == 20 ? 0xca0 : 0xc9a; size = 1; max = 100; }
-    else if (field == 22) { offset = 0xc9b; size = 1; min = 1; max = 20; }
+    else if (field == 20 || field == 21) { offset = field == 20 ? P_(0xca0) : P_(0xc9a); size = 1; max = 100; }
+    else if (field == 22) { offset = P_(0xc9b); size = 1; min = 1; max = 20; }
     else return false;
     if (value < min || value > max) return false;
     if (write && field == 20) {
@@ -301,7 +301,7 @@ static bool apply_scenario(unsigned char* match) {
                 *(void**)(obj + 0x120) = *(void**)(obj + 0x118); *(void**)(obj + 0x138) = *(void**)(obj + 0x130);
             } else if (edit.kind == 43) {
                 if (edit.b >= 8 || edit.value >= 16 || !((unsigned char (*)(unsigned, int))at(fn_task_valid))(edit.b, (int)(signed char)edit.value)) return false;
-                ((void (*)(void*, unsigned, unsigned char, unsigned char, unsigned long))at(fn_task_set))(obj, edit.b, (unsigned char)edit.value, 0xff, 0);
+                ((void (*)(void*, unsigned, unsigned char, signed char, unsigned long))at(fn_task_set))(obj, edit.b, (unsigned char)edit.value, -1, 0);
             } else if (edit.kind == 44) {
                 if (edit.value >= 8 || edit.b >= 4) return false;
                 if ((size_t)(*(unsigned char**)(obj + 0x120) - *(unsigned char**)(obj + 0x118)) != edit.b) return false;

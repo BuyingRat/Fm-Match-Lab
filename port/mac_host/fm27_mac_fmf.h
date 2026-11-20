@@ -13,7 +13,7 @@ static unsigned fmf_stream_revision = 0;
 // Windows node vtable[21](node,&raw,0) (MSVC hidden return) -> Mac vtable[22](&raw,node,0).
 static void* fmf_open_raw(unsigned char* node) {
     void* raw = nullptr;
-    ((void* (*)(void*, void*, void*))(*(void***)node)[vslot_node_open_raw])(&raw, node, nullptr);
+    call_sret((*(void***)node)[vslot_node_open_raw], &raw, (void*)node, (void*)nullptr);
     return raw;
 }
 // Windows stream vtable[5](s,buf,n) -> Mac vtable[6].
@@ -33,8 +33,8 @@ static void fmf_probe(unsigned char* resources) {
     EngineString name;
     ((void* (*)(void*, const char*, int))at(fn_string_from_c))(&name, path, -1);
     void* file = nullptr; void* folder_object = nullptr;
-    ((void* (*)(void*, void*, void*))at(fn_file_open))(&file, &name, resources + res_filesystem);
-    ((void* (*)(void*, void*, uintptr_t))at(fn_folder_open))(&folder_object, &file, *at<uintptr_t*>(g_folder_key));
+    call_sret(at(fn_file_open), &file, (void*)&name, (void*)(resources + res_filesystem));
+    call_sret(at(fn_folder_open), &folder_object, (void*)&file, *at<uintptr_t*>(g_folder_key));
     auto folder = (unsigned char*)folder_object;
     if (getenv("FM27_FMF_AUDIT")) LOG("{\"event\":\"native_fmf_archive_open\",\"folder\":%s}", folder ? "true" : "false");
     if (folder) {
@@ -82,8 +82,7 @@ static void fmf_probe(unsigned char* resources) {
             if (size < 8 || size > 1024 * 1024) return;
             auto title = *(unsigned**)(node + fmf_node_title);
             void* entry_file = node; void* stream = nullptr; void* extra = nullptr;
-            struct Ret16 { uint64_t a, b; };
-            ((Ret16 (*)(void*, void*, uintptr_t, void*))at(fn_reader_factory))(&stream, &entry_file, 0, &extra);
+            call_sret(at(fn_reader_factory), &stream, (void*)&entry_file, (uintptr_t)0, (void*)&extra);
             if (!stream) return;
             // The native adapter has consumed the eight-byte standalone TAC stream header.
             std::vector<unsigned char> bytes((size_t)size - 8);

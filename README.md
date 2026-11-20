@@ -114,7 +114,7 @@ matches) and the first tactic search; the full studies are in [docs/studies/](do
 
 ## Requirements
 
-- macOS on Apple Silicon (via Rosetta 2) or Intel.
+- macOS on Apple Silicon (natively on 27.0.1 build 2503222, via Rosetta 2 on older builds) or Intel.
 - FM27 installed through Steam, at a supported build: **27.0.0** (2493426), **27.0.1** (2494769) or the **27.0.1
   hotfix of 12 November** (2503222, installed automatically by Steam). Other builds are refused until they have been
   mapped: the set-up stops with "Unsupported FM27 build", and the app runs nothing (see "Updating after an FM27

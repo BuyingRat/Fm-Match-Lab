@@ -73,7 +73,7 @@ def _initialize_files(root, native, game, files, dll):
         if validation and not (validation.get('compatible') or validation.get('trial_allowed')):
             close_leases()
             if validation.get('method')=='lc_uuid_in_file':   # FM27 was updated since the host was built
-                built=str(validation.get('profile','')).removeprefix('fm27-').removesuffix('-macos-x86_64')
+                built=str(validation.get('profile','')).removeprefix('fm27-').removesuffix('-macos-x86_64').removesuffix('-macos-arm64')
                 return {**status,'reason':'game_build_changed','diagnostics':rows,
                         'message':f'FM27 has been updated since the set-up (the engine host was built for {built}). Close FM27 and run '
                                   '.venv/bin/python scripts/setup.py again. If it reports an unsupported build, this version of the '

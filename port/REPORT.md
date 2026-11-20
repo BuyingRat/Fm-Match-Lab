@@ -784,3 +784,70 @@ runs in `src/`) were translated in place. Catalog labels (roles, attributes, ins
 options) are translated in memory when the server loads the private catalog (`src/catalog_en.py`): they are derived
 from the English already in the data (role ids, attribute names, team-instruction source names, the set-piece
 catalog's `english` field), or translated by hand where there is none. The private catalog itself is unchanged.
+
+## Phase 7: native arm64 host (timing test, 2026-11-14)
+
+Question: how much faster would studies run if the host ran the game's arm64 slice natively instead of the x86_64
+slice under Rosetta? Build 27.0.1+2503222 (arm64 LC_UUID A8550B47-FDE0-3D0D-A6CB-1B63DEE8DA19).
+
+**Addresses.** Ghidra analysis of the arm64 slice (project folder /a2503222; 118,932 functions; about 2 h on a loaded
+machine) and feature export for both slices of this build. `port/map/match_arch.py` matches x86_64 to arm64 with the
+Windows-to-Mac matcher (5,829 unique-string anchors, 189 constant anchors, then call-graph propagation: 46,266 pairs)
+and maps globals by votes from the matched functions that reference them, skipping thread-local descriptors. Of the
+host's 75 addresses, 65 came out automatically; nine were placed by hand (evidence in
+`port/mac_host/fm27_mac_arm64_2503222.h`); two (`fn_task_valid`, `fn_task_set`, in-match task edits only) were
+mapped by hand later (see "Default host" below). One automatic global was wrong: `g_bootstrap_table` had been voted onto a thread-local descriptor, which
+crashed `tlv_get_addr` in the match constructor.
+
+**Calling convention.** Four engine functions the host calls with an output slot first (`fn_file_open`,
+`fn_folder_open`, `fn_reader_factory`, `fn_match_folder_open`) return through a hidden slot: first argument on
+x86_64, x8 on arm64 (`port/map/arm64_sret_check.py` reads the prologues). The host calls them, and two virtual calls
+of the same kind, through `call_sret`, which compiles to the old call on x86_64.
+
+**Struct layouts.** Mostly the same. `port/map/offset_vote_arch.py` decompiles twin functions on both slices and
+votes: match, team, player and plan offsets come out identical (e.g. tick 33/33 pairs, clock 23/23, team count 6/6,
+attributes 10/10). The resources object is the exception: from +0x40 on it is 0x18 shorter on arm64 (file system
++0x148, roots +0x100/+0x108), found from a crash in `fn_file_open` and confirmed in four twin functions. Common small
+offsets vote poorly (0x160 appears in many unrelated structs), so a layout difference has to be confirmed in
+functions known to take that object.
+
+**Exactness.** The arm64 host reproduces the x86_64 host exactly: every result event (match statistics, xG, every
+incident, player totals, substitutions, set-piece choices, tactic changes) is identical for 7 plain replays, 117
+replays with scenario edits (every team-instruction option, mentality, condition, sharpness, morale, cohesion,
+personality) and 15 worker-mode jobs. The only bytes that differ are the uninitialised padding at the end of each
+incident record. (A host quirk found on the way: the in-match tactic-change detector compared match addresses, so in
+worker mode a match allocated at the previous match's address could log a spurious first change; it now resets per
+job.)
+
+**Speed** (simulation only, the engine's own step loop; the machine was running another study's 7 workers, load
+average 34-51):
+
+| | x86_64 under Rosetta | arm64 native | ratio |
+|---|---|---|---|
+| single replays, 6 matches | 4.0-4.7 s | 2.85-3.2 s | 1.40-1.47 |
+| worker mode, 15 matches (median) | 3.4 s | 2.8 s | 1.20 |
+
+Starting a process costs about 1 s more under Rosetta (translating the library), which worker mode pays once per
+64 jobs. On an idle machine (same 15 jobs, worker mode, one host at a time): 2.76 s against 2.13 s of simulation per
+match (median), **1.30x**; whole run 42.7 s against 32.5 s. Per worker that is about 1,260 matches an hour under
+Rosetta and 1,660 natively.
+
+**Default host (2026-11-15).** `scripts/build_native_mac.py` now builds the arm64 host by default on build 2503222
+(`--arch x86_64` for the Rosetta host). Before switching, the remaining features were checked against the x86_64
+host on a saved match: the saved-match snapshot (every player, attribute, exact trait mask, tactic, set piece,
+opposition instruction and taker list) is identical; the coach preset export gives the same 157 style, template and
+formation events; FMF tactic export/import and set-piece export/import round-trip through the game's parser; and a
+replay with set-piece routine edits, opposition-instruction edits, attribute and profile edits, `FM27_MAC_ATTR` and
+`FM27_MAC_EXEC_FIELDS` gives identical events (165/165). Three address or call fixes were needed on the way:
+- `fn_task_valid` `0x48c047c` and `fn_task_set` `0x48c0644`, placed by hand (arm64 inlines the validator into the
+  setter and loads the task tables with `ldr d0`, which hid the twins from the matcher). The setter's "append"
+  index is a signed byte; arm64 compares the whole register with -1 (`cmn w22, #1`), so the host now passes -1
+  instead of 0xff (x86_64 sign-extends the byte itself, so it worked there by accident).
+- `g_preset_loader` is the singleton slot `0x5740ba8`; the earlier hand pick `0x5740ba0` was its guard byte.
+- `fn_formation_valid` was wrong on both 27.0.1 slices: the 27.0 routine (`0x50c8c20`) became
+  `fn(code, mode)` at x86_64 `0x5019210` / arm64 `0x4a89020` (same 0x19c1000011001 mask), and the old automatic match
+  (`0x500e4b0`) was an unrelated sort routine. The preset export calls it with mode 4 (the mask-only path).
+The tracer stays x86_64 only by design.
+
+Reproduce: `port/map/match_arch.py` (header), then
+`clang++ -std=c++17 -O2 -arch arm64 -DFM27_MAC_BUILD=2503222 -o private/engine/fm27_research/host_arm64 port/mac_host/fm27_mac_host.cpp`.

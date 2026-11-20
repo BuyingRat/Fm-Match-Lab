@@ -62,9 +62,9 @@ complexity.
   0.07-0.08 xPts per game (about 3 points a season) when it falls from 50 to 20 (t 6-7); out-of-possession shape
   about a third of that; the other five areas show little.
 - **Raising an area above 50 gains nothing measurable** in either style: familiarity is a floor to keep.
-- **Why:** each area strengthens two of every player's attributes during play, up to a limit that a reasonably
-  trained area already nearly reaches; the two that matter most both strengthen Anticipation (a prediction from this
-  fits the measured losses, correlation 0.94-0.96).
+- **The engine explains the order:** each area strengthens two attributes during play, and these two are the ones tied
+  to Anticipation; the boost is limited, which is why lowering an area hurts and raising it adds little (prediction and
+  measured losses correlate 0.94-0.96).
 
 ## Attributes by playing style ([Study 9](studies/09-attributes-by-style.md))
 
@@ -96,6 +96,13 @@ complexity.
   and Adaptability show nothing established.
 - **Important Matches is not worth more on European nights** than in the league.
 - **Dirtiness and Temperament drive cards, not results:** Dirtiness 20 adds a card per game, Temperament 1 half a card.
+- **Real points, not just xG (Study 27):** Pressure 1 costs −0.68 points a game in actual results (t −6.8), about 26
+  points a season, because finishing collapses; expected points miss most of it. Professionalism 1 costs −0.41 points
+  a game and Sportsmanship 1 −0.26. See [Study 27](studies/27-personality.md).
+- **Three attributes made no difference at all in 30 replays:** raising Natural Fitness, Leadership or One on Ones by
+  5 in-game points for a whole squad left every replay unchanged, to the last pass. Natural Fitness and Leadership are
+  not used during a match; One on Ones is used only in a goalkeeper situation that did not arise in those 30 matches.
+  Penalty Taking, Handling and Tendency to Punch matter only in the rare situations they cover.
 - **Consistency is read only in some fixtures** (in one league template only for the away side), which points to a
   per-fixture gate in the match, possibly the occasion's importance.
 
@@ -131,6 +138,11 @@ complexity.
 - **The model predicts 247 conditions of earlier studies** (correlation 0.94; within noise for changes of ±5 at levels
   9-20). Below 9, Pace and Acceleration fall faster than linear; Jumping Reach is convex (worth far more for a player
   who already jumps well, t 7); Pace and Acceleration reinforce each other in the same player (t 3.7).
+- **Pooled with every earlier study, one linear model fits them all** (105 conditions with changes of at most 5
+  levels: measured 0.96 × predicted, within noise), once substitutes are credited by the minutes they play; that was
+  the whole-squad conditions' excess (1.14 × with starters alone, 1.02 × with them). Jumping Reach is the exception
+  (its convexity). A better goalkeeper saves only about 0.6 of the predicted goals, so a worse one costs more than a
+  better one gains (a lead).
 - **Agrees with Study 13 (within its noise) and, in pattern, with a 200,000-match test on FM Arena** (correlation 0.80
   over 240 cells); that test's striker values are two to three times ours, and having one striker instead of two
   doesn't explain it.

@@ -57,7 +57,7 @@
 #define FM27_RVA_fn_tac_write 0x4e61e00   // callers refs 12/12
 #define FM27_RVA_fn_bootstrap 0x514b000   // signature:64; callers refs 1/1
 #define FM27_RVA_fn_interface_ctor 0x514c6b0   // signature-tie(5300)->neighbour-delta -> overridden by callers; callers refs 1/1
-#define FM27_RVA_fn_formation_valid 0x500e4b0   // callers refs 1/1
+#define FM27_RVA_fn_formation_valid 0x5019210   // by hand: 0x19c1000011001 formation mask check (27.0.1 adds mode arg)
 #define FM27_RVA_g_plan_defaults 0x594b728   // refs 12/12
 #define FM27_RVA_g_deadball_types 0x5a34f78   // refs 1/1
 #define FM27_RVA_vt_benchmark_match 0x5c0d210   // refs 12/12

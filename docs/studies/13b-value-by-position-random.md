@@ -16,7 +16,8 @@ or chance? And can the same design finally measure single goalkeeper attributes,
 - **Jumping Reach is a centre-back's and a striker's attribute** (+0.32 and +0.19 xPts a season per level), much less a
   defensive midfielder's (+0.06). Balance also pays for centre-backs and strikers, hardly elsewhere.
 - **Goalkeepers: Agility and Reflexes matter, each on its own.** +1 level of either saves about 0.8-1.1 goals a season
-  (t −19 to −23), worth about half a point; +5 of each is worth about 5 points a season together. The xG the keeper
+  (t −19 to −23), worth about half a point; +5 of each is worth up to 5 points a season together (gains look
+  smaller than losses: a lead). The xG the keeper
   faces doesn't change: it is all at the save, so xPts tables miss it.
 - **The style changes the sizes, not the order.** Catenaccio, a deep 5-2-2-1 close to Purity's shape, gives the same
   leaders and the same goalkeeper result, but its defenders gain less from speed (less space to cover behind them)
@@ -131,6 +132,8 @@ Per season, +1 level of the goalkeeper's attribute; t in brackets. The rest are 
   goals and is worth about 5 points a season.
 - **Acceleration and Handling act on the chances themselves:** they lower the xG the keeper faces (a keeper who comes
   off his line sooner; fewer rebounds), worth less in goals.
+- **The gain from a better keeper is smaller than the loss from a worse one:** the earlier studies' +5 conditions
+  saved about 0.6 of what these coefficients predict (pooled estimates, below). Read the +5 figures as the upper end.
 - **Study 21's leads don't hold:** Positioning and Concentration are close to zero here.
 - **Consistent with Study 21.** There, Reflexes and Agility +5 alone lowered goals against by 0.06 and 0.05 per game
   (t below 1), and 0.14 together. Here +5 is 0.10 and 0.12 per game each: within Study 21's error, which was about
@@ -209,8 +212,8 @@ changed, and predicted from this study's per-level coefficients (`port/validatio
   ±5, levels 9-20) the 187 conditions fit within their noise (chi-square 133 on 179), once each study's baseline is
   allowed its own offset (see below).
 - **One position group at a time (Study 13): exactly additive,** measured = 0.96 × predicted (±0.16).
-- **The whole squad +5: 1.23 × predicted** (±0.09). Part of this is the substitutes, who were improved too but are
-  not in the model; the rest may be a small gain from improving everyone at once.
+- **The whole squad +5: 1.23 × predicted** (±0.09) with the starters alone. The substitutes explain most of the rest
+  (pooled estimates, below).
 - **Below level 9 the straight line breaks** (Study 12's levels 1-6): Pace and Acceleration lose about 50% more than
   linear, Work Rate collapses (its floor), and Jumping Reach loses less (it is convex, below).
 - **Each study's baseline carries its own luck.** Pairing on seeds barely reduces noise (one change alters the whole
@@ -228,6 +231,31 @@ at different levels, so the value of a level can be compared between players of 
 - **Pace and Acceleration reinforce each other in the same player** (t 3.7): +5 in both is worth about 7% more than
   the two separately. Of seven other pairs tested, Jumping Reach × Heading (more, in goals, t 2.7) and Passing × Vision
   (less, t −2.4) are leads only.
+
+**Pooled estimates: everything together** (`pooled_attributes.py minutes` and `pool`, no new study matches):
+- **Substitutes, credited by their minutes.** 320 of Study 13's unchanged matches, replayed with every substitution
+  recorded, give each bench player's minutes per position: the substitutes play about 104 minutes a match between
+  them, mostly as wide or attacking midfielders (the starters there play 71 minutes on average, defensive midfielders
+  83, everyone else about 90). A substitute's +1 level is then worth the position's coefficient times its minutes
+  there over a starter's.
+- **With the substitutes, the whole-squad conditions fit:** measured = 1.02 × predicted (±0.07; 1.14 with the
+  starters alone), and their spread is within the noise (chi-square 27 on 47). The excess was the substitutes, not a
+  gain from improving everyone at once.
+- **One linear model explains every earlier condition in its range** (changes of at most 5 levels): 105 conditions,
+  measured = 0.96 × predicted (±0.06) in expected points, chi-square 110 on 105. Each study, left out of the fit and
+  predicted from the rest, agrees within its noise; Study 13 is borderline (chi-square 56 on 39, p 0.04).
+- **Jumping Reach is the exception:** its 15 conditions measure 1.26 × the prediction (±0.08), as its convexity
+  predicts for players above the squad's average level, so they are left out of the fit.
+- **Pooling sharpens the estimates only a little:** the earlier studies change whole positions or squads at once, so
+  they mostly add to the whole-team values (standard errors 5-17% smaller for 18 attributes, e.g. Anticipation
+  +0.82 ± 0.05 a season for every starter +1, Dribbling +0.50 ± 0.05, Pace +1.56 ± 0.06), and almost nothing to
+  single positions (at most 5%, except the goalkeeper's One on Ones, close to zero either way). The estimates
+  hardly move: this study's numbers stand.
+- **Goalkeepers, in goals against: a gain is worth less than a loss.** The conditions that improve the goalkeeper
+  (Studies 10, 14, 14b, 21, 21b; +5 from the keeper's own level) lower goals against by only 0.58 × the prediction
+  (±0.09; expected points fit, 0.98). This study's design moves each attribute 5 levels down or up, so its
+  coefficient is half that swing. Read together: a keeper 5 levels worse in Agility or Reflexes costs about 2.4 times
+  what one 5 levels better saves. A lead, to be confirmed by a study that lowers the keeper's attributes.
 
 ## What this means
 
@@ -259,6 +287,16 @@ at different levels, so the value of a level can be compared between players of 
 ```
 
 Catenaccio: the same with `--style Catenaccio` and `runs/random/catenaccio`.
+
+Against the other studies and pooled (needs their results in `runs/roadmap/`; `presets.jsonl` from `runs/roadmap/13`
+in `runs/pooled/scratch/`):
+
+```sh
+.venv/bin/python port/validation/pooled_attributes.py designs runs/pooled     # what each earlier condition changed
+.venv/bin/python port/validation/pooled_attributes.py predict runs/pooled
+.venv/bin/python port/validation/pooled_attributes.py minutes runs/pooled     # 320 matches: substitutes' minutes
+.venv/bin/python port/validation/pooled_attributes.py pool runs/pooled        # runs/pooled/pool.md, pool.json
+```
 
 Regression: the outcome on the per-position sums of the level changes (one column per attribute and position), with a
 constant per setting; the team model has one column per attribute for the ten outfield players. Position differences:
